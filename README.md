@@ -103,6 +103,7 @@ VITE_PROGRAM_ID=your-program-id
 VITE_VERIFIER_PARTNER_ID=verifier-partner-id
 
 # General Configuration
+VITE_PRIVATE_KEY=your-private-key
 VITE_LOCALE=en
 VITE_REDIRECT_URL_FOR_ISSUER=http://localhost:5173/issue
 ```

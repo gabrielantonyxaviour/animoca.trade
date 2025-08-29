@@ -10,8 +10,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@mocanetwork/air-credential-sdk": "^0.0.7-beta.1",
-    "@mocanetwork/airkit": "^1.4.0-beta.1",
+    "@mocanetwork/airkit": "1.6.0-beta.0",
+    "jose": "^6.0.13",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-router-dom": "^7.6.2",

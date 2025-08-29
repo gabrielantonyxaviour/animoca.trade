@@ -155,7 +155,6 @@ function AppRoutes({
               <CredentialIssuance
                 airService={airService}
                 isLoggedIn={isLoggedIn}
-                airKitBuildEnv={currentEnv}
                 partnerId={partnerId}
                 environmentConfig={environmentConfig}
               />
@@ -169,7 +168,6 @@ function AppRoutes({
               <CredentialVerification
                 airService={airService}
                 isLoggedIn={isLoggedIn}
-                airKitBuildEnv={currentEnv}
                 partnerId={partnerId}
                 environmentConfig={environmentConfig}
               />
@@ -194,7 +192,9 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userAddress, setUserAddress] = useState<string | null>(null);
-  const [currentEnv, setCurrentEnv] = useState<BUILD_ENV_TYPE>(BUILD_ENV.SANDBOX);
+  const [currentEnv, setCurrentEnv] = useState<BUILD_ENV_TYPE>(
+    BUILD_ENV.SANDBOX
+  );
   const [partnerId, setPartnerId] = useState<string>(ISSUER_PARTNER_ID);
 
   // Get environment config based on current environment

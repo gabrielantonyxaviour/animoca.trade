@@ -1,12 +1,13 @@
-import { useState, useEffect, useRef } from "react";
-import { AirCredentialWidget, type ClaimRequest, type JsonDocumentObject, type Language } from "@mocanetwork/air-credential-sdk";
-import "@mocanetwork/air-credential-sdk/dist/style.css";
-import { AirService, BUILD_ENV } from "@mocanetwork/airkit";
-import type { BUILD_ENV_TYPE } from "@mocanetwork/airkit";
+import { AirService } from "@mocanetwork/airkit";
+import { useState } from "react";
 import type { EnvironmentConfig } from "../../config/environments";
+import { generateJwt, getJwtPayload, EXAMPLE_JWKS_URL } from "../../utils";
+import CollapsibleSection from "../CollapsibleSection";
 
 // Environment variables for configuration
 const LOCALE = import.meta.env.VITE_LOCALE || "en";
+
+type JsonDocumentObject = Record<string, string | number | boolean>;
 
 interface CredentialField {
   id: string;
@@ -18,56 +19,31 @@ interface CredentialField {
 interface CredentialIssuanceProps {
   airService: AirService | null;
   isLoggedIn: boolean;
-  airKitBuildEnv: BUILD_ENV_TYPE;
   partnerId: string;
   environmentConfig: EnvironmentConfig;
 }
 
-const getIssuerAuthToken = async (issuerDid: string, apiKey: string, apiUrl: string): Promise<string | null> => {
-  try {
-    const response = await fetch(`${apiUrl}/issuer/login`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        accept: "*/*",
-        "X-Test": "true",
-      },
-      body: JSON.stringify({
-        issuerDid: issuerDid,
-        authToken: apiKey,
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`API call failed with status: ${response.status}`);
-    }
-
-    const data = await response.json();
-
-    if (data.code === 80000000 && data.data && data.data.token) {
-      return data.data.token;
-    } else {
-      console.error("Failed to get issuer auth token from API:", data.msg || "Unknown error");
-      return null;
-    }
-  } catch (error) {
-    console.error("Error fetching issuer auth token:", error);
-    return null;
-  }
-};
-
-const CredentialIssuance = ({ airService, isLoggedIn, airKitBuildEnv, partnerId, environmentConfig }: CredentialIssuanceProps) => {
+const CredentialIssuance = ({
+  airService,
+  isLoggedIn,
+  partnerId,
+  environmentConfig,
+}: CredentialIssuanceProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const widgetRef = useRef<AirCredentialWidget | null>(null);
+  const [generatedJwt, setGeneratedJwt] = useState<string>("");
 
   // Configuration - these would typically come from environment variables or API
   const [config, setConfig] = useState({
     issuerDid: import.meta.env.VITE_ISSUER_DID || "did:example:issuer123",
-    apiKey: import.meta.env.VITE_ISSUER_API_KEY || "your-issuer-api-key", // api key
-    credentialId: import.meta.env.VITE_CREDENTIAL_ID || "c21hc0g0joevn0015479aK",
+    credentialId:
+      import.meta.env.VITE_CREDENTIAL_ID || "c21hc0g0joevn0015479aK",
   });
+
+  const [privateKey, setPrivateKey] = useState(
+    import.meta.env.VITE_PRIVATE_KEY || ""
+  );
 
   // Dynamic credential subject fields
   const [credentialFields, setCredentialFields] = useState<CredentialField[]>([
@@ -136,103 +112,68 @@ const CredentialIssuance = ({ airService, isLoggedIn, airKitBuildEnv, partnerId,
     return subject;
   };
 
-  const generateWidget = async () => {
-    try {
-      // Step 1: Fetch the issuer auth token using the API key
-      const fetchedIssuerAuthToken = await getIssuerAuthToken(config.issuerDid, config.apiKey, environmentConfig.apiUrl);
-
-      if (!fetchedIssuerAuthToken) {
-        setError("Failed to fetch issuer authentication token. Please check your DID and API Key.");
-        setIsLoading(false);
-        return;
-      }
-
-      const credentialSubject = convertFieldsToCredentialSubject();
-
-      console.log("credentialSubject", credentialSubject);
-
-      // Create the claim request with the fetched token
-      const claimRequest: ClaimRequest = {
-        process: "Issue",
-        issuerDid: config.issuerDid,
-        issuerAuth: fetchedIssuerAuthToken,
-        credentialId: config.credentialId,
-        credentialSubject: credentialSubject,
-      };
-
-      const rp = await airService?.goToPartner(environmentConfig.widgetUrl).catch((err) => {
-        console.error("Error getting URL with token:", err);
-      });
-
-      console.log("urlWithToken", rp, rp?.urlWithToken);
-
-      if (!rp?.urlWithToken) {
-        console.warn("Failed to get URL with token. Please check your partner ID.");
-        setError("Failed to get URL with token. Please check your partner ID.");
-        setIsLoading(false);
-        return;
-      }
-
-      // Create and configure the widget with proper options
-      widgetRef.current = new AirCredentialWidget(claimRequest, partnerId, {
-        endpoint: rp?.urlWithToken,
-        airKitBuildEnv: airKitBuildEnv || BUILD_ENV.STAGING,
-        theme: "light", // currently only have light theme
-        locale: LOCALE as Language,
-      });
-
-      // Set up event listeners
-      widgetRef.current.on("issueCompleted", () => {
-        setIsSuccess(true);
-        setIsLoading(false);
-        console.log("Credential issuance completed successfully!");
-      });
-
-      widgetRef.current.on("close", () => {
-        setIsLoading(false);
-        console.log("Widget closed");
-      });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create widget");
-      setIsLoading(false);
-    }
-  };
-
   const handleIssueCredential = async () => {
     setIsLoading(true);
     setError(null);
     setIsSuccess(false);
 
     try {
-      //generate everytime to ensure the partner token passing in correctly
-      await generateWidget();
+      const jwt =
+        generatedJwt ||
+        (await generateJwt({
+          partnerId,
+          privateKey,
+        }));
 
-      // Start the widget
-      if (widgetRef.current) {
-        widgetRef.current.launch();
+      if (!jwt) {
+        setError("Failed to generate JWT");
+        setIsLoading(false);
+        return;
       }
+      const credentialSubject = convertFieldsToCredentialSubject();
+
+      if (!airService) {
+        setError(
+          "AirService is not initialized. Please check your partner ID."
+        );
+        setIsLoading(false);
+        return;
+      }
+
+      await airService.issueCredential({
+        authToken: jwt,
+        credentialId: config.credentialId,
+        credentialSubject: credentialSubject,
+        issuerDid: config.issuerDid,
+      });
+
+      setIsSuccess(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
       setIsLoading(false);
     }
   };
 
-  const handleReset = () => {
-    setIsSuccess(false);
+  const handleGenerateJwt = async () => {
     setError(null);
-    if (widgetRef.current) {
-      widgetRef.current.destroy();
-      widgetRef.current = null;
+    try {
+      const jwt = await generateJwt({ partnerId, privateKey });
+      if (!jwt) {
+        setError("Failed to generate JWT");
+        setGeneratedJwt("");
+        return;
+      }
+      setGeneratedJwt(jwt);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An error occurred");
+      setGeneratedJwt("");
     }
   };
 
-  useEffect(() => {
-    return () => {
-      if (widgetRef.current) {
-        widgetRef.current.destroy();
-      }
-    };
-  }, []);
+  const handleReset = () => {
+    setIsSuccess(false);
+    setError(null);
+  };
 
   const renderFieldValueInput = (field: CredentialField) => {
     switch (field.type) {
@@ -270,7 +211,9 @@ const CredentialIssuance = ({ airService, isLoggedIn, airKitBuildEnv, partnerId,
           <input
             type="text"
             value={field.value.toString()}
-            onChange={(e) => updateCredentialField(field.id, { value: e.target.value })}
+            onChange={(e) =>
+              updateCredentialField(field.id, { value: e.target.value })
+            }
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
             placeholder="Enter value"
           />
@@ -278,16 +221,101 @@ const CredentialIssuance = ({ airService, isLoggedIn, airKitBuildEnv, partnerId,
     }
   };
 
+  const isDisabled =
+    isLoading ||
+    !isLoggedIn ||
+    !generatedJwt ||
+    !config.issuerDid ||
+    !config.credentialId ||
+    Object.keys(convertFieldsToCredentialSubject()).length === 0;
+
   return (
     <div className="flex-1 p-2 sm:p-4 lg:p-8">
       <div className="w-full sm:max-w-2xl md:max-w-4xl lg:max-w-6xl sm:mx-auto bg-white rounded-lg shadow-lg p-2 sm:p-6 lg:p-8">
         <div className="mb-4 sm:mb-6 lg:mb-8">
-          <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2 sm:mb-4">Credential Issuance</h2>
+          <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2 sm:mb-4">
+            Credential Issuance
+          </h2>
           <p className="text-gray-600 text-sm sm:text-base">
-            Issue digital credentials to users using the AIR Credential SDK. Configure the issuance parameters below and Start the widget to begin the
-            process.
+            Issue digital credentials to users using the AIR Credential SDK.
+            Configure the issuance parameters below and Start the widget to
+            begin the process.
           </p>
         </div>
+
+        {/* JWT generation Section */}
+        <CollapsibleSection title="Authentication" defaultCollapsed>
+          <div className="grid gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Private Key
+                </label>
+                <textarea
+                  value={privateKey}
+                  onChange={(e) => setPrivateKey(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500 resize-vertical"
+                  placeholder="Enter your private key (PEM format)"
+                  rows={4}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  JWT Payload (readonly)
+                </label>
+                <textarea
+                  value={JSON.stringify(getJwtPayload(partnerId), null, 2)}
+                  readOnly
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500 resize-vertical"
+                  rows={4}
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={handleGenerateJwt}
+                disabled={!privateKey || !partnerId}
+                className="px-4 py-2 bg-gray-800 text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Generate JWT
+              </button>
+              {generatedJwt && (
+                <span className="text-xs text-gray-600">JWT generated</span>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Auth Token
+              </label>
+              <textarea
+                value={generatedJwt}
+                onChange={(e) => setGeneratedJwt(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500 resize-vertical"
+                placeholder="Enter your JWT"
+                rows={6}
+              />
+            </div>
+
+            <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+              <p className="text-xs text-yellow-800">
+                <strong>Notes:</strong> The default key corresponds to{" "}
+                <a
+                  href={EXAMPLE_JWKS_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {EXAMPLE_JWKS_URL}
+                </a>
+                . For production applications, private key management and JWT
+                generation should be handled on the backend for security.
+              </p>
+            </div>
+          </div>
+        </CollapsibleSection>
 
         {/* Configuration Section */}
         <div className="mb-6 sm:mb-8">
@@ -304,17 +332,7 @@ const CredentialIssuance = ({ airService, isLoggedIn, airKitBuildEnv, partnerId,
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Issuer API Key</label>
-              <input
-                type="text"
-                value={config.apiKey}
-                onChange={(e) => handleConfigChange("apiKey", e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
-                placeholder="Your issuer API key"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Credential ID</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Issuance Program ID</label>
               <input
                 type="text"
                 value={config.credentialId}
@@ -323,8 +341,11 @@ const CredentialIssuance = ({ airService, isLoggedIn, airKitBuildEnv, partnerId,
                 placeholder="credential-type-123"
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Partner ID (from NavBar)</label>
+
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Partner ID (from NavBar)
+              </label>
               <input
                 type="text"
                 value={partnerId}
@@ -452,7 +473,7 @@ const CredentialIssuance = ({ airService, isLoggedIn, airKitBuildEnv, partnerId,
         <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4">
           <button
             onClick={handleIssueCredential}
-            disabled={isLoading || !isLoggedIn}
+            disabled={isDisabled}
             className="w-full sm:flex-1 bg-brand-600 text-white px-4 sm:px-6 py-3 rounded-md font-medium hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {isLoading ? (

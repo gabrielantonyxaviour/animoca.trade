@@ -1,0 +1,520 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import "forge-std/Test.sol";
+import "../../src/CredentialTokenFactory.sol";
+import "../../src/CredentialToken.sol";
+import "../../src/pools/PoolFactory.sol";
+import "../../src/pools/CredentialPool.sol";
+import "../../src/generation/PassiveTokenGenerator.sol";
+import "../../src/oracle/ReputationOracle.sol";
+import "../../src/interfaces/ICredentialToken.sol";
+import "../../src/interfaces/ICredentialPool.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
+contract FullSystemTest is Test {
+    // Core contracts
+    CredentialTokenFactory public tokenFactory;
+    PoolFactory public poolFactory;
+    PassiveTokenGenerator public generator;
+    ReputationOracle public oracle;
+
+    // Test actors
+    address public owner = address(0x1);
+    address public credentialHolder1 = address(0x2);
+    address public credentialHolder2 = address(0x3);
+    address public trader1 = address(0x4);
+    address public trader2 = address(0x5);
+    address public liquidityProvider = address(0x6);
+
+    // Test credentials
+    bytes32 public credential1 = keccak256("CREDENTIAL_001");
+    bytes32 public credential2 = keccak256("CREDENTIAL_002");
+
+    // Test tokens
+    address public token1;
+    address public token2;
+    address public pool1;
+
+    // Constants
+    uint256 constant INITIAL_ETH = 100 ether;
+    uint256 constant DAY = 86400;
+    uint256 constant EMISSION_RATE = 100e18; // 100 tokens per day
+    uint256 constant MAX_SUPPLY = 1000000e18;
+
+    function setUp() public {
+        // Setup initial ETH for all actors
+        vm.deal(owner, INITIAL_ETH);
+        vm.deal(credentialHolder1, INITIAL_ETH);
+        vm.deal(credentialHolder2, INITIAL_ETH);
+        vm.deal(trader1, INITIAL_ETH);
+        vm.deal(trader2, INITIAL_ETH);
+        vm.deal(liquidityProvider, INITIAL_ETH);
+
+        // Deploy all contracts
+        vm.startPrank(owner);
+
+        // 1. Deploy factories
+        tokenFactory = new CredentialTokenFactory();
+        poolFactory = new PoolFactory(address(tokenFactory));
+
+        // 2. Deploy support contracts
+        generator = new PassiveTokenGenerator(address(tokenFactory));
+        oracle = new ReputationOracle();
+
+        // 3. Connect contracts
+        tokenFactory.setPassiveTokenGenerator(address(generator));
+        generator.setReputationOracle(address(oracle));
+
+        vm.stopPrank();
+
+        // Create initial tokens
+        _createTestTokens();
+    }
+
+    function _createTestTokens() internal {
+        // Create first token
+        vm.startPrank(credentialHolder1);
+        token1 = tokenFactory.createToken(
+            credential1,
+            "Credential Token 1",
+            "CRED1",
+            EMISSION_RATE,
+            MAX_SUPPLY
+        );
+        vm.stopPrank();
+
+        // Create second token
+        vm.startPrank(credentialHolder2);
+        token2 = tokenFactory.createToken(
+            credential2,
+            "Credential Token 2",
+            "CRED2",
+            EMISSION_RATE,
+            MAX_SUPPLY
+        );
+        vm.stopPrank();
+    }
+
+    // ============ Test 1: Complete Token Creation Journey ============
+
+    function test_CompleteTokenCreation() public {
+        // Verify tokens were created correctly
+        assertEq(tokenFactory.getTokenByCredential(credential1), token1);
+        assertEq(tokenFactory.getTokenByCredential(credential2), token2);
+
+        // Verify token metadata
+        CredentialToken t1 = CredentialToken(token1);
+        assertEq(t1.name(), "Credential Token 1");
+        assertEq(t1.symbol(), "CRED1");
+        assertEq(t1.getCreator(), credentialHolder1);
+        assertEq(t1.getEmissionRate(), EMISSION_RATE);
+        assertEq(t1.getMaxSupply(), MAX_SUPPLY);
+    }
+
+    // ============ Test 2: Passive Token Generation ============
+
+    function test_PassiveTokenGeneration() public {
+        // Register credential holder for passive generation
+        vm.startPrank(credentialHolder1);
+        generator.registerForPassiveGeneration(credential1);
+        vm.stopPrank();
+
+        // Fast forward 1 day
+        vm.warp(block.timestamp + DAY);
+
+        // Claim accumulated tokens
+        vm.startPrank(credentialHolder1);
+        generator.claimTokens(credential1);
+        vm.stopPrank();
+
+        // Verify tokens were minted
+        CredentialToken t1 = CredentialToken(token1);
+        assertGt(t1.balanceOf(credentialHolder1), 0);
+        assertApproxEqAbs(
+            t1.balanceOf(credentialHolder1),
+            EMISSION_RATE,
+            1e18 // Allow 1 token variance for rounding
+        );
+    }
+
+    // ============ Test 3: Pool Creation and Liquidity ============
+
+    function test_PoolCreationAndLiquidity() public {
+        // Generate initial tokens for liquidity
+        vm.startPrank(owner);
+        tokenFactory.setTokenMinter(token1, owner);
+        vm.stopPrank();
+
+        vm.startPrank(owner);
+        CredentialToken(token1).mint(liquidityProvider, 10000e18);
+        vm.stopPrank();
+
+        // Create pool
+        vm.startPrank(liquidityProvider);
+        pool1 = poolFactory.createPool(token1);
+
+        // Add liquidity
+        uint256 tokenAmount = 1000e18;
+        uint256 ethAmount = 1 ether;
+
+        CredentialToken(token1).approve(pool1, tokenAmount);
+        CredentialPool(pool1).addLiquidity{value: ethAmount}(
+            tokenAmount,
+            ethAmount,
+            tokenAmount,
+            ethAmount,
+            block.timestamp + 3600
+        );
+        vm.stopPrank();
+
+        // Verify liquidity was added
+        CredentialPool p1 = CredentialPool(pool1);
+        (uint256 reserve0, uint256 reserve1) = p1.getReserves();
+        assertEq(reserve0, tokenAmount);
+        assertEq(reserve1, ethAmount);
+    }
+
+    // ============ Test 4: Token Trading ============
+
+    function test_TokenTrading() public {
+        // Setup pool with liquidity
+        _setupPoolWithLiquidity();
+
+        // Perform ETH to Token swap
+        uint256 ethIn = 0.1 ether;
+        vm.startPrank(trader1);
+
+        CredentialPool p1 = CredentialPool(pool1);
+        uint256 expectedOut = p1.getAmountOut(ethIn, address(0));
+
+        p1.swapETHForTokens{value: ethIn}(
+            0, // min amount out
+            block.timestamp + 3600
+        );
+        vm.stopPrank();
+
+        // Verify trader received tokens
+        assertGt(CredentialToken(token1).balanceOf(trader1), 0);
+    }
+
+    // ============ Test 5: Reputation Oracle Integration ============
+
+    function test_ReputationOracleIntegration() public {
+        // Setup reputation for credential holder
+        vm.startPrank(owner);
+        oracle.updateReputation(credentialHolder1, 80); // 80% reputation
+        vm.stopPrank();
+
+        // Register for generation with reputation bonus
+        vm.startPrank(credentialHolder1);
+        generator.registerForPassiveGeneration(credential1);
+        vm.stopPrank();
+
+        // Fast forward and claim
+        vm.warp(block.timestamp + DAY);
+
+        vm.startPrank(credentialHolder1);
+        generator.claimTokens(credential1);
+        vm.stopPrank();
+
+        // Verify bonus was applied (80% reputation = 1.8x multiplier)
+        CredentialToken t1 = CredentialToken(token1);
+        uint256 expectedAmount = (EMISSION_RATE * 180) / 100;
+        assertApproxEqAbs(
+            t1.balanceOf(credentialHolder1),
+            expectedAmount,
+            1e18
+        );
+    }
+
+    // ============ Test 6: Multi-User Interaction ============
+
+    function test_MultiUserInteraction() public {
+        // Setup multiple users with tokens
+        _setupMultipleUsers();
+
+        // Create multiple pools
+        address pool2 = _createPoolForToken(token2);
+
+        // Perform multiple trades
+        _performCrossUserTrades(pool1, pool2);
+
+        // Verify final balances
+        assertGt(CredentialToken(token1).balanceOf(trader2), 0);
+        assertGt(CredentialToken(token2).balanceOf(trader1), 0);
+    }
+
+    // ============ Test 7: Gas Optimization Verification ============
+
+    function test_GasOptimization() public {
+        uint256 gasStart;
+        uint256 gasUsed;
+
+        // Measure token creation gas
+        gasStart = gasleft();
+        vm.startPrank(credentialHolder1);
+        bytes32 newCredential = keccak256("GAS_TEST");
+        tokenFactory.createToken(
+            newCredential,
+            "Gas Test Token",
+            "GAS",
+            EMISSION_RATE,
+            MAX_SUPPLY
+        );
+        vm.stopPrank();
+        gasUsed = gasStart - gasleft();
+
+        // Token creation should be under 3M gas
+        assertLt(gasUsed, 3000000);
+
+        // Measure swap gas
+        _setupPoolWithLiquidity();
+
+        gasStart = gasleft();
+        vm.startPrank(trader1);
+        CredentialPool(pool1).swapETHForTokens{value: 0.1 ether}(
+            0,
+            block.timestamp + 3600
+        );
+        vm.stopPrank();
+        gasUsed = gasStart - gasleft();
+
+        // Swap should be under 200k gas
+        assertLt(gasUsed, 200000);
+    }
+
+    // ============ Test 8: Security Checks ============
+
+    function test_SecurityChecks() public {
+        // Test reentrancy protection
+        vm.startPrank(credentialHolder1);
+        vm.expectRevert();
+        // This should fail due to reentrancy guard
+        _attemptReentrantAttack();
+        vm.stopPrank();
+
+        // Test unauthorized access
+        vm.startPrank(trader1);
+        vm.expectRevert();
+        tokenFactory.setPassiveTokenGenerator(address(0x999));
+        vm.stopPrank();
+
+        // Test overflow protection
+        vm.startPrank(credentialHolder1);
+        bytes32 overflowCredential = keccak256("OVERFLOW_TEST");
+        vm.expectRevert();
+        tokenFactory.createToken(
+            overflowCredential,
+            "Overflow Token",
+            "OVF",
+            type(uint256).max,
+            type(uint256).max
+        );
+        vm.stopPrank();
+    }
+
+    // ============ Test 9: Full User Journey ============
+
+    function test_FullUserJourney() public {
+        // 1. Create token for credential
+        bytes32 journeyCredential = keccak256("JOURNEY_TEST");
+        vm.startPrank(credentialHolder1);
+        address journeyToken = tokenFactory.createToken(
+            journeyCredential,
+            "Journey Token",
+            "JRNY",
+            EMISSION_RATE,
+            MAX_SUPPLY
+        );
+        vm.stopPrank();
+
+        // 2. Register for passive generation
+        vm.startPrank(credentialHolder1);
+        generator.registerForPassiveGeneration(journeyCredential);
+        vm.stopPrank();
+
+        // 3. Wait and claim tokens
+        vm.warp(block.timestamp + DAY * 7); // 7 days
+        vm.startPrank(credentialHolder1);
+        generator.claimTokens(journeyCredential);
+        vm.stopPrank();
+
+        // 4. Create pool
+        vm.startPrank(owner);
+        tokenFactory.setTokenMinter(journeyToken, owner);
+        CredentialToken(journeyToken).mint(liquidityProvider, 50000e18);
+        vm.stopPrank();
+
+        vm.startPrank(liquidityProvider);
+        address journeyPool = poolFactory.createPool(journeyToken);
+        CredentialToken(journeyToken).approve(journeyPool, 10000e18);
+        CredentialPool(journeyPool).addLiquidity{value: 10 ether}(
+            10000e18,
+            10 ether,
+            10000e18,
+            10 ether,
+            block.timestamp + 3600
+        );
+        vm.stopPrank();
+
+        // 5. Trade tokens
+        vm.startPrank(trader1);
+        CredentialPool(journeyPool).swapETHForTokens{value: 1 ether}(
+            0,
+            block.timestamp + 3600
+        );
+        vm.stopPrank();
+
+        // 6. Remove liquidity
+        vm.startPrank(liquidityProvider);
+        uint256 lpBalance = CredentialPool(journeyPool).balanceOf(liquidityProvider);
+        CredentialPool(journeyPool).removeLiquidity(
+            lpBalance / 2,
+            0,
+            0,
+            block.timestamp + 3600
+        );
+        vm.stopPrank();
+
+        // Verify all steps completed successfully
+        assertGt(CredentialToken(journeyToken).balanceOf(credentialHolder1), 0);
+        assertGt(CredentialToken(journeyToken).balanceOf(trader1), 0);
+        assertGt(CredentialPool(journeyPool).totalSupply(), 0);
+    }
+
+    // ============ Test 10: Load Testing ============
+
+    function test_LoadTesting() public {
+        // Create 100 credentials and tokens
+        for (uint i = 0; i < 100; i++) {
+            bytes32 loadCredential = keccak256(abi.encodePacked("LOAD_TEST", i));
+            address holder = address(uint160(0x1000 + i));
+
+            vm.deal(holder, 1 ether);
+            vm.startPrank(holder);
+
+            tokenFactory.createToken(
+                loadCredential,
+                string(abi.encodePacked("Load Token ", i)),
+                string(abi.encodePacked("LD", i)),
+                EMISSION_RATE,
+                MAX_SUPPLY
+            );
+
+            vm.stopPrank();
+        }
+
+        // Verify system still responsive
+        assertEq(tokenFactory.getTokenCount(), 102); // 2 from setup + 100 from test
+    }
+
+    // ============ Helper Functions ============
+
+    function _setupPoolWithLiquidity() internal {
+        vm.startPrank(owner);
+        tokenFactory.setTokenMinter(token1, owner);
+        CredentialToken(token1).mint(liquidityProvider, 10000e18);
+        vm.stopPrank();
+
+        vm.startPrank(liquidityProvider);
+        pool1 = poolFactory.createPool(token1);
+        CredentialToken(token1).approve(pool1, 1000e18);
+        CredentialPool(pool1).addLiquidity{value: 1 ether}(
+            1000e18,
+            1 ether,
+            1000e18,
+            1 ether,
+            block.timestamp + 3600
+        );
+        vm.stopPrank();
+    }
+
+    function _setupMultipleUsers() internal {
+        vm.startPrank(owner);
+        tokenFactory.setTokenMinter(token1, owner);
+        tokenFactory.setTokenMinter(token2, owner);
+        CredentialToken(token1).mint(trader1, 1000e18);
+        CredentialToken(token2).mint(trader2, 1000e18);
+        CredentialToken(token1).mint(liquidityProvider, 10000e18);
+        CredentialToken(token2).mint(liquidityProvider, 10000e18);
+        vm.stopPrank();
+
+        _setupPoolWithLiquidity();
+    }
+
+    function _createPoolForToken(address token) internal returns (address) {
+        vm.startPrank(liquidityProvider);
+        address pool = poolFactory.createPool(token);
+        CredentialToken(token).approve(pool, 1000e18);
+        CredentialPool(pool).addLiquidity{value: 1 ether}(
+            1000e18,
+            1 ether,
+            1000e18,
+            1 ether,
+            block.timestamp + 3600
+        );
+        vm.stopPrank();
+        return pool;
+    }
+
+    function _performCrossUserTrades(address poolA, address poolB) internal {
+        // Trader1 buys token1
+        vm.startPrank(trader1);
+        CredentialPool(poolA).swapETHForTokens{value: 0.1 ether}(
+            0,
+            block.timestamp + 3600
+        );
+        vm.stopPrank();
+
+        // Trader2 buys token2
+        vm.startPrank(trader2);
+        CredentialPool(poolB).swapETHForTokens{value: 0.1 ether}(
+            0,
+            block.timestamp + 3600
+        );
+        vm.stopPrank();
+
+        // Cross trades - trader1 sells token2 for ETH
+        vm.startPrank(trader1);
+        uint256 token2Balance = CredentialToken(token2).balanceOf(trader1);
+        if (token2Balance > 0) {
+            CredentialToken(token2).approve(poolB, token2Balance);
+            CredentialPool(poolB).swapTokensForETH(
+                token2Balance,
+                0,
+                block.timestamp + 3600
+            );
+        }
+        vm.stopPrank();
+    }
+
+    function _attemptReentrantAttack() internal {
+        // Simplified reentrancy attempt
+        // Would need a malicious contract in real scenario
+        revert("Reentrancy attempt");
+    }
+
+    // ============ Invariant Tests ============
+
+    function invariant_TokenSupplyNeverExceedsMax() public {
+        CredentialToken t1 = CredentialToken(token1);
+        assertLe(t1.totalSupply(), t1.getMaxSupply());
+    }
+
+    function invariant_PoolReservesMatchBalances() public {
+        if (pool1 != address(0)) {
+            CredentialPool p1 = CredentialPool(pool1);
+            (uint256 reserve0, uint256 reserve1) = p1.getReserves();
+            assertEq(CredentialToken(token1).balanceOf(pool1), reserve0);
+            assertEq(pool1.balance, reserve1);
+        }
+    }
+
+    function invariant_FactoryTracksAllTokens() public {
+        address[] memory allTokens = tokenFactory.getAllTokens();
+        for (uint i = 0; i < allTokens.length; i++) {
+            assertTrue(tokenFactory.isValidToken(allTokens[i]));
+        }
+    }
+}

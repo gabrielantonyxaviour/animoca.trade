@@ -1,0 +1,30 @@
+{
+  "name": "credential-token-contracts",
+  "version": "1.0.0",
+  "description": "Smart contracts for the credential token ecosystem",
+  "scripts": {
+    "build": "forge build",
+    "test": "forge test",
+    "test:coverage": "forge coverage",
+    "deploy:sepolia": "forge script script/Deploy.s.sol --rpc-url sepolia --broadcast --verify",
+    "deploy:mainnet": "forge script script/Deploy.s.sol --rpc-url mainnet --broadcast --verify",
+    "format": "forge fmt",
+    "gas-report": "forge test --gas-report",
+    "export-abis": "node scripts/export-abis.js"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.4.0"
+  },
+  "devDependencies": {
+    "fs-extra": "^11.1.1"
+  },
+  "keywords": [
+    "solidity",
+    "smart-contracts",
+    "credential-tokens",
+    "amm",
+    "defi"
+  ],
+  "author": "Credential Token Ecosystem",
+  "license": "MIT"
+}

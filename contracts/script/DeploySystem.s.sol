@@ -1,0 +1,341 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import "forge-std/Script.sol";
+import "../src/CredentialTokenFactory.sol";
+import "../src/pools/PoolFactory.sol";
+import "../src/generation/PassiveTokenGenerator.sol";
+import "../src/oracle/ReputationOracle.sol";
+
+contract DeploySystem is Script {
+    // Deployment addresses
+    CredentialTokenFactory public tokenFactory;
+    PoolFactory public poolFactory;
+    PassiveTokenGenerator public generator;
+    ReputationOracle public oracle;
+
+    // Deployment configuration
+    struct DeploymentConfig {
+        address deployer;
+        address admin;
+        address initialOracle;
+        uint256 deployerKey;
+    }
+
+    DeploymentConfig public config;
+
+    // Events for tracking deployment
+    event SystemDeployed(
+        address tokenFactory,
+        address poolFactory,
+        address generator,
+        address oracle,
+        uint256 timestamp
+    );
+
+    function run() external {
+        // Load configuration
+        _loadConfig();
+
+        // Start deployment
+        vm.startBroadcast(config.deployerKey);
+
+        // Step 1: Deploy core factories
+        console.log("Deploying core factories...");
+        tokenFactory = _deployTokenFactory();
+        poolFactory = _deployPoolFactory();
+
+        // Step 2: Deploy support contracts
+        console.log("Deploying support contracts...");
+        generator = _deployPassiveGenerator();
+        oracle = _deployReputationOracle();
+
+        // Step 3: Connect contracts
+        console.log("Connecting contracts...");
+        _connectContracts();
+
+        // Step 4: Set initial configuration
+        console.log("Setting initial configuration...");
+        _configureSystem();
+
+        // Step 5: Transfer ownership if needed
+        console.log("Finalizing deployment...");
+        _transferOwnership();
+
+        vm.stopBroadcast();
+
+        // Emit deployment event
+        emit SystemDeployed(
+            address(tokenFactory),
+            address(poolFactory),
+            address(generator),
+            address(oracle),
+            block.timestamp
+        );
+
+        // Log deployment addresses
+        _logDeployment();
+
+        // Verify deployment
+        _verifyDeployment();
+
+        // Export deployment data
+        _exportDeploymentData();
+    }
+
+    function _loadConfig() internal {
+        // Load environment variables
+        config.deployerKey = vm.envUint("PRIVATE_KEY");
+        config.deployer = vm.addr(config.deployerKey);
+
+        // Set admin (can be different from deployer)
+        string memory adminAddress = vm.envString("ADMIN_ADDRESS");
+        if (bytes(adminAddress).length > 0) {
+            config.admin = vm.parseAddress(adminAddress);
+        } else {
+            config.admin = config.deployer;
+        }
+
+        // Set initial oracle operator
+        string memory oracleAddress = vm.envString("ORACLE_OPERATOR");
+        if (bytes(oracleAddress).length > 0) {
+            config.initialOracle = vm.parseAddress(oracleAddress);
+        } else {
+            config.initialOracle = config.admin;
+        }
+
+        console.log("=== Deployment Configuration ===");
+        console.log("Deployer:", config.deployer);
+        console.log("Admin:", config.admin);
+        console.log("Oracle Operator:", config.initialOracle);
+        console.log("================================");
+    }
+
+    function _deployTokenFactory() internal returns (CredentialTokenFactory) {
+        console.log("  Deploying CredentialTokenFactory...");
+        CredentialTokenFactory factory = new CredentialTokenFactory();
+        console.log("  CredentialTokenFactory deployed at:", address(factory));
+        return factory;
+    }
+
+    function _deployPoolFactory() internal returns (PoolFactory) {
+        console.log("  Deploying PoolFactory...");
+        PoolFactory factory = new PoolFactory(address(tokenFactory));
+        console.log("  PoolFactory deployed at:", address(factory));
+        return factory;
+    }
+
+    function _deployPassiveGenerator() internal returns (PassiveTokenGenerator) {
+        console.log("  Deploying PassiveTokenGenerator...");
+        PassiveTokenGenerator gen = new PassiveTokenGenerator(address(tokenFactory));
+        console.log("  PassiveTokenGenerator deployed at:", address(gen));
+        return gen;
+    }
+
+    function _deployReputationOracle() internal returns (ReputationOracle) {
+        console.log("  Deploying ReputationOracle...");
+        ReputationOracle ora = new ReputationOracle();
+        console.log("  ReputationOracle deployed at:", address(ora));
+        return ora;
+    }
+
+    function _connectContracts() internal {
+        console.log("  Setting PassiveTokenGenerator in TokenFactory...");
+        tokenFactory.setPassiveTokenGenerator(address(generator));
+
+        console.log("  Setting ReputationOracle in PassiveGenerator...");
+        generator.setReputationOracle(address(oracle));
+
+        console.log("  Setting Oracle operator...");
+        oracle.addOperator(config.initialOracle);
+
+        console.log("  Contracts connected successfully");
+    }
+
+    function _configureSystem() internal {
+        // Configure initial system parameters
+        console.log("  Configuring system parameters...");
+
+        // Set default reputation score
+        oracle.setDefaultReputation(50); // 50% default reputation
+
+        // Set generation parameters
+        generator.setMinimumClaimInterval(86400); // 1 day minimum between claims
+        generator.setMaxAccumulationDays(30); // Max 30 days accumulation
+
+        console.log("  System configuration complete");
+    }
+
+    function _transferOwnership() internal {
+        if (config.admin != config.deployer) {
+            console.log("  Transferring ownership to admin...");
+
+            // Transfer factory ownership
+            tokenFactory.transferOwnership(config.admin);
+            poolFactory.transferOwnership(config.admin);
+            generator.transferOwnership(config.admin);
+            oracle.transferOwnership(config.admin);
+
+            console.log("  Ownership transferred to:", config.admin);
+        } else {
+            console.log("  Ownership retained by deployer");
+        }
+    }
+
+    function _logDeployment() internal view {
+        console.log("\n=== DEPLOYMENT SUMMARY ===");
+        console.log("Network:", block.chainid == 11155111 ? "Sepolia" : "Unknown");
+        console.log("Block:", block.number);
+        console.log("Timestamp:", block.timestamp);
+        console.log("\nContract Addresses:");
+        console.log("  CredentialTokenFactory:", address(tokenFactory));
+        console.log("  PoolFactory:", address(poolFactory));
+        console.log("  PassiveTokenGenerator:", address(generator));
+        console.log("  ReputationOracle:", address(oracle));
+        console.log("\nConfiguration:");
+        console.log("  Admin:", config.admin);
+        console.log("  Oracle Operator:", config.initialOracle);
+        console.log("=========================\n");
+    }
+
+    function _verifyDeployment() internal view {
+        console.log("Verifying deployment...");
+
+        // Verify factories
+        require(address(tokenFactory) != address(0), "TokenFactory not deployed");
+        require(address(poolFactory) != address(0), "PoolFactory not deployed");
+        require(address(generator) != address(0), "Generator not deployed");
+        require(address(oracle) != address(0), "Oracle not deployed");
+
+        // Verify connections
+        require(
+            tokenFactory.getPassiveTokenGenerator() == address(generator),
+            "Generator not connected to TokenFactory"
+        );
+        require(
+            generator.getReputationOracle() == address(oracle),
+            "Oracle not connected to Generator"
+        );
+        require(
+            poolFactory.getTokenFactory() == address(tokenFactory),
+            "TokenFactory not connected to PoolFactory"
+        );
+
+        // Verify ownership
+        if (config.admin != config.deployer) {
+            require(tokenFactory.owner() == config.admin, "TokenFactory ownership not transferred");
+            require(poolFactory.owner() == config.admin, "PoolFactory ownership not transferred");
+            require(generator.owner() == config.admin, "Generator ownership not transferred");
+            require(oracle.owner() == config.admin, "Oracle ownership not transferred");
+        }
+
+        console.log("Deployment verification successful!");
+    }
+
+    function _exportDeploymentData() internal {
+        // Create deployment JSON for frontend
+        string memory obj = "deployment";
+
+        vm.serializeAddress(obj, "tokenFactory", address(tokenFactory));
+        vm.serializeAddress(obj, "poolFactory", address(poolFactory));
+        vm.serializeAddress(obj, "generator", address(generator));
+        vm.serializeAddress(obj, "oracle", address(oracle));
+        vm.serializeUint(obj, "chainId", block.chainid);
+        vm.serializeUint(obj, "blockNumber", block.number);
+        vm.serializeUint(obj, "timestamp", block.timestamp);
+        string memory finalJson = vm.serializeAddress(obj, "deployer", config.deployer);
+
+        // Write to file
+        string memory filename = string(abi.encodePacked(
+            "deployments/",
+            vm.toString(block.chainid),
+            "-latest.json"
+        ));
+        vm.writeJson(finalJson, filename);
+
+        console.log("Deployment data exported to:", filename);
+
+        // Also create TypeScript configuration update
+        _generateTypeScriptConfig();
+    }
+
+    function _generateTypeScriptConfig() internal view {
+        string memory network = block.chainid == 11155111 ? "sepolia" : "mainnet";
+
+        string memory tsConfig = string(abi.encodePacked(
+            "// Auto-generated deployment addresses\n",
+            "// Generated on: ", vm.toString(block.timestamp), "\n",
+            "// Network: ", network, "\n\n",
+            "export const CONTRACT_ADDRESSES = {\n",
+            "  ", network, ": {\n",
+            "    CREDENTIAL_TOKEN_FACTORY: '", vm.toString(address(tokenFactory)), "',\n",
+            "    POOL_FACTORY: '", vm.toString(address(poolFactory)), "',\n",
+            "    PASSIVE_TOKEN_GENERATOR: '", vm.toString(address(generator)), "',\n",
+            "    REPUTATION_ORACLE: '", vm.toString(address(oracle)), "',\n",
+            "  },\n",
+            "};\n"
+        ));
+
+        // Write TypeScript config
+        string memory tsFilename = string(abi.encodePacked(
+            "deployments/",
+            network,
+            "-contracts.ts"
+        ));
+        vm.writeFile(tsFilename, tsConfig);
+
+        console.log("TypeScript config generated:", tsFilename);
+    }
+
+    // Utility function for testing deployments
+    function testDeployment() external {
+        // Deploy the system
+        this.run();
+
+        // Create a test token
+        console.log("\n=== Testing Deployment ===");
+
+        vm.startBroadcast(config.deployerKey);
+
+        bytes32 testCredential = keccak256("TEST_CREDENTIAL");
+        address testToken = tokenFactory.createToken(
+            testCredential,
+            "Test Token",
+            "TEST",
+            100e18, // 100 tokens per day
+            1000000e18 // 1M max supply
+        );
+
+        console.log("Test token created:", testToken);
+
+        // Create a pool for the test token
+        address testPool = poolFactory.createPool(testToken);
+        console.log("Test pool created:", testPool);
+
+        vm.stopBroadcast();
+
+        console.log("Deployment test successful!");
+    }
+}
+
+// Deployment helper contract for specific networks
+contract DeployToSepolia is DeploySystem {
+    function run() external override {
+        // Set Sepolia-specific configuration
+        require(block.chainid == 11155111, "Not on Sepolia");
+        super.run();
+    }
+}
+
+contract DeployToMainnet is DeploySystem {
+    function run() external override {
+        // Set mainnet-specific configuration
+        require(block.chainid == 1, "Not on Mainnet");
+
+        // Additional safety checks for mainnet
+        console.log("WARNING: Deploying to MAINNET");
+        console.log("Press ENTER to continue or CTRL+C to abort...");
+
+        super.run();
+    }
+}

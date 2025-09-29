@@ -1,28 +1,17 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAccount, type Connector } from "wagmi";
+import { useAccount } from "wagmi";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, TrendingUp, DollarSign, Users, Activity } from "lucide-react";
 import { useRealTimePrices } from "@/hooks/useRealTimePrices";
-import type { AirConnector, AirConnectorProperties } from "@mocanetwork/airkit-connector";
 
 const CredentialMarkets: React.FC = () => {
   const navigate = useNavigate();
-  const { connector, isConnected } = useAccount();
+  const { isConnected } = useAccount();
   const { prices } = useRealTimePrices();
-
-  // Check if connected wallet is AirKit wallet
-  const isAirWalletConnector = (connector as Connector & AirConnectorProperties)?.isMocaNetwork;
-
-  const airConnector = useMemo<AirConnector | null>(() => {
-    if (isAirWalletConnector && connector) {
-      return connector as AirConnector;
-    }
-    return null;
-  }, [connector, isAirWalletConnector]);
 
 
   const [createdTokens, setCreatedTokens] = useState<any[]>([]);

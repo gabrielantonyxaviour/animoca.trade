@@ -12,7 +12,7 @@ import { ArrowLeft, TrendingUp, TrendingDown, DollarSign, CheckCircle, Zap } fro
 import PriceCharts from "@/components/analytics/PriceCharts";
 import { useRealTimePrices } from "@/hooks/useRealTimePrices";
 import { initializeMarketplace } from "@/services/credential-marketplace";
-import { AirConnector, AirConnectorProperties } from "@mocanetwork/airkit-connector";
+import type { AirConnector, AirConnectorProperties } from "@mocanetwork/airkit-connector";
 
 interface CredentialStats {
   totalIssuances: number;

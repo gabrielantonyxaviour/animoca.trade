@@ -210,44 +210,59 @@ export default function PriceCharts({
           break;
       }
 
-      let basePrice = 10 + Math.random() * 20;
+      // Static candle data centered around $10.77
+      const staticCandleData = [
+        { open: 10.50, high: 10.85, low: 10.45, close: 10.72, volume: 8500 },
+        { open: 10.72, high: 10.92, low: 10.68, close: 10.88, volume: 12300 },
+        { open: 10.88, high: 10.95, low: 10.75, close: 10.82, volume: 9800 },
+        { open: 10.82, high: 10.89, low: 10.65, close: 10.71, volume: 11200 },
+        { open: 10.71, high: 10.85, low: 10.62, close: 10.77, volume: 13400 },
+        { open: 10.77, high: 10.95, low: 10.74, close: 10.91, volume: 15600 },
+        { open: 10.91, high: 10.98, low: 10.83, close: 10.86, volume: 10900 },
+        { open: 10.86, high: 10.92, low: 10.69, close: 10.75, volume: 8700 },
+        { open: 10.75, high: 10.85, low: 10.58, close: 10.64, volume: 14200 },
+        { open: 10.64, high: 10.78, low: 10.59, close: 10.73, volume: 9500 },
+        { open: 10.73, high: 10.89, low: 10.71, close: 10.84, volume: 11800 },
+        { open: 10.84, high: 10.94, low: 10.79, close: 10.87, volume: 13100 },
+        { open: 10.87, high: 10.96, low: 10.72, close: 10.79, volume: 10600 },
+        { open: 10.79, high: 10.85, low: 10.66, close: 10.72, volume: 12400 },
+        { open: 10.72, high: 10.88, low: 10.68, close: 10.81, volume: 14700 },
+        { open: 10.81, high: 10.93, low: 10.76, close: 10.89, volume: 11300 },
+        { open: 10.89, high: 10.97, low: 10.84, close: 10.92, volume: 9900 },
+        { open: 10.92, high: 11.05, low: 10.88, close: 10.96, volume: 16800 },
+        { open: 10.96, high: 11.08, low: 10.91, close: 11.02, volume: 18200 },
+        { open: 11.02, high: 11.12, low: 10.95, close: 10.98, volume: 15400 },
+        { open: 10.98, high: 11.07, low: 10.89, close: 10.94, volume: 12700 },
+        { open: 10.94, high: 10.99, low: 10.78, close: 10.82, volume: 13900 },
+        { open: 10.82, high: 10.91, low: 10.74, close: 10.85, volume: 11600 },
+        { open: 10.85, high: 10.93, low: 10.79, close: 10.88, volume: 10800 }
+      ];
+
       let cumulativeVolume = 0;
 
-      for (let i = 0; i < dataPoints; i++) {
+      for (let i = 0; i < Math.min(dataPoints, staticCandleData.length); i++) {
         const time = new Date(now.getTime() - (dataPoints - i) * interval);
         const timeString = time.toISOString().split('T')[0];
 
-        // Generate price with some volatility
-        const change = (Math.random() - 0.5) * 2;
-        const price = Math.max(0.1, basePrice + change);
-        basePrice = price;
+        const candle = staticCandleData[i % staticCandleData.length];
 
         points.push({
           time: timeString,
-          value: price,
+          value: candle.close,
         });
-
-        // Generate candle data
-        const open = price + (Math.random() - 0.5);
-        const close = price + (Math.random() - 0.5);
-        const high = Math.max(open, close) + Math.random() * 0.5;
-        const low = Math.min(open, close) - Math.random() * 0.5;
 
         candles.push({
           time: timeString,
-          open,
-          high,
-          low,
-          close,
+          open: candle.open,
+          high: candle.high,
+          low: candle.low,
+          close: candle.close,
         });
 
-        // Generate volume data
-        const volume = Math.random() * 10000 + 1000;
-        cumulativeVolume += volume;
-
+        cumulativeVolume += candle.volume;
         volumes.push({
           time: timeString,
-          value: volume,
+          value: candle.volume,
         });
       }
 

@@ -1,4 +1,4 @@
-import { type AirService } from "@mocanetwork/airkit";
+// import { type AirService } from "@mocanetwork/airkit";
 import { useState } from "react";
 import type { EnvironmentConfig } from "../../config/environments";
 import { generateJwt, getJwtPayload, EXAMPLE_JWKS_URL } from "../../utils";
@@ -8,15 +8,11 @@ import CollapsibleSection from "../CollapsibleSection";
 const LOCALE = import.meta.env.VITE_LOCALE || "en";
 
 interface CredentialVerificationProps {
-  airService: AirService | null;
-  isLoggedIn: boolean;
   partnerId: string;
   environmentConfig: EnvironmentConfig;
 }
 
 const CredentialVerification = ({
-  airService,
-  isLoggedIn,
   partnerId,
   environmentConfig,
 }: CredentialVerificationProps) => {
@@ -40,7 +36,7 @@ const CredentialVerification = ({
     import.meta.env.VITE_PRIVATE_KEY || ""
   );
 
-  console.log("AirService in CredentialVerification:", airService);
+  // Note: AirService integration removed for wagmi compatibility
 
   const handleConfigChange = (field: string, value: string) => {
     setConfig((prev) => ({ ...prev, [field]: value }));
@@ -65,21 +61,21 @@ const CredentialVerification = ({
         return;
       }
 
-      if (!airService) {
-        setError(
-          "AirService is not initialized. Please check your partner ID."
-        );
-        setIsLoading(false);
-        return;
-      }
+      // if (!airService) {
+      //   setError(
+      //     "AirService is not initialized. Please check your partner ID."
+      //   );
+      //   setIsLoading(false);
+      //   return;
+      // }
 
-      const result = await airService.verifyCredential({
-        authToken: jwt,
-        programId: config.programId,
-        redirectUrl: config.redirectUrlForIssuer,
-      });
+      // const result = await airService.verifyCredential({
+      //   authToken: jwt,
+      //   programId: config.programId,
+      //   redirectUrl: config.redirectUrlForIssuer,
+      // });
 
-      setVerificationResult(result);
+      // setVerificationResult(result);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
       setIsLoading(false);
@@ -171,7 +167,7 @@ const CredentialVerification = ({
 
   const isDisabled =
     isLoading ||
-    !isLoggedIn ||
+    // !isLoggedIn ||
     !generatedJwt ||
     !config.programId ||
     !config.redirectUrlForIssuer;

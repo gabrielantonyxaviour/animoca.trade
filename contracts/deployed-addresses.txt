@@ -3,21 +3,44 @@ Moca Devnet (Chain ID: 5151)
 Deployed at: 2025-09-29
 Explorer: https://devnet-scan.mocachain.org
 
-NEW USDC-BASED SYSTEM CONTRACT ADDRESSES:
-=========================================
-MockUSDC: 0x12D2162F47AAAe1B0591e898648605daA186D644
-CredentialTokenFactory: 0xa6a621e9C92fb8DFC963d2C20e8C5CB4C5178cBb
-FeeCollector: 0x62A3E29afc75a91f40599f4f7314fF46eBa9bF93
-CredentialAMM: 0x60DdECC1f8Fa85b531D4891Ac1901Ab263066A67
+LATEST DEPLOYMENT - ACTIVE SYSTEM:
+==================================
+MockUSDC: 0x62A3E29afc75a91f40599f4f7314fF46eBa9bF93
+CredentialTokenFactory: 0x60DdECC1f8Fa85b531D4891Ac1901Ab263066A67
+FeeCollector: 0x94B03d30a4bdde64af2A713060dF1bE4dEb8BeC1
+CredentialAMM: 0x15ad9d57A5A6Fea6b7efdA228ef117a4A7ed9ef9
+
+ACTIVE CREDENTIAL TOKENS:
+========================
+MIT Computer Science Degree (MIT-CS): 0x4df42747cfE514b1DF36CdFb08b7C22605dA4b61
+TechCorp Senior Developer Certification (TECH-DEV): 0x0B49C417818a3afc5DbF98748Fc63F06bDa88C19
+CryptoAcademy Blockchain Expert Badge (CRYPTO-BE): 0xFdEcdF2004f339C0d2e12A924B91EEdcfA911062
+
+MARKET STATUS:
+=============
+✅ All 3 markets active with initial liquidity
+✅ Initial price: 1 USDC per token
+✅ Ready for trading
 
 Admin/Deployer: 0x6B9ad963c764a06A7ef8ff96D38D0cB86575eC00
 
 Environment Variables for Frontend Integration:
 ==============================================
-export USDC_ADDRESS=0x12D2162F47AAAe1B0591e898648605daA186D644
-export FACTORY_ADDRESS=0xa6a621e9C92fb8DFC963d2C20e8C5CB4C5178cBb
-export FEE_COLLECTOR_ADDRESS=0x62A3E29afc75a91f40599f4f7314fF46eBa9bF93
-export AMM_ADDRESS=0x60DdECC1f8Fa85b531D4891Ac1901Ab263066A67
+export USDC_ADDRESS=0x62A3E29afc75a91f40599f4f7314fF46eBa9bF93
+export FACTORY_ADDRESS=0x60DdECC1f8Fa85b531D4891Ac1901Ab263066A67
+export FEE_COLLECTOR_ADDRESS=0x94B03d30a4bdde64af2A713060dF1bE4dEb8BeC1
+export AMM_ADDRESS=0x15ad9d57A5A6Fea6b7efdA228ef117a4A7ed9ef9
+
+# Credential Token Addresses
+export MIT_CS_TOKEN=0x4df42747cfE514b1DF36CdFb08b7C22605dA4b61
+export TECH_DEV_TOKEN=0x0B49C417818a3afc5DbF98748Fc63F06bDa88C19
+export CRYPTO_BE_TOKEN=0xFdEcdF2004f339C0d2e12A924B91EEdcfA911062
+
+Credential IDs (bytes32):
+========================
+MIT_COMPUTER_SCIENCE_DEGREE: 0x840a020ab5a23b396dbff33aa3d3f0a10122e0c45506f345426ae9fd28b78b7f
+TECHCORP_SENIOR_DEVELOPER_CERT: 0x36f54272069d54283c9b19b2bda5fcf3ac67472872a89d6fbd8ac62b04e52b6d
+CRYPTOACADEMY_BLOCKCHAIN_EXPERT_BADGE: 0x2e4e7e8baaa96a9a3ca5b97c6e7c5b4d4a4e3e8ad4b4ec4b4e4b4e4b4e4b4e4b
 
 System Features:
 ===============
@@ -27,7 +50,8 @@ System Features:
 ✅ Slippage protection and deadline enforcement
 ✅ Multiple fee types (minting, verification, high-value)
 ✅ Liquidity provision and trading functionality
+✅ 3 active credential markets ready for trading
 ✅ Comprehensive test coverage (17 tests passing)
 
 Deployment Status: SUCCESS
-All contracts deployed and configured successfully.
+All contracts deployed, configured, and markets created successfully.

@@ -10,27 +10,6 @@ import { initializeMarketplace } from "@/services/credential-marketplace";
 import { TRADING_CREDENTIALS, type TradingPlatform, type CredentialStatus } from "@/config/tradingCredentials";
 import type { AirConnector, AirConnectorProperties } from "@mocanetwork/airkit-connector";
 
-interface UserCredential {
-  id: string;
-  name: string;
-  issuer: string;
-  type: string;
-  issuedDate: Date;
-  validated: boolean;
-  verificationStatus: "verified" | "pending" | "rejected";
-  hasToken: boolean;
-  description: string;
-  emoji?: string;
-  nftImage?: string;
-  logoImage?: string;
-  requirements?: string[];
-}
-
-interface TokenCreationResult {
-  credentialId: string;
-  tokenAddress: string;
-}
-
 interface CreateTokenParams {
   credentialId: string;
   name: string;
@@ -39,7 +18,7 @@ interface CreateTokenParams {
   maxSupply: number;
   initialLiquidity: {
     tokenAmount: number;
-    usdcAmount: number; // Changed from usdcAmount to usdcAmount
+    usdcAmount: number;
   };
 }
 
@@ -61,13 +40,13 @@ const TokenCreationForm: React.FC = () => {
   const airService = airConnector?.airService;
 
   // Marketplace service states
-  const [marketplace, setMarketplace] = useState<ReturnType<typeof initializeMarketplace> | null>(null);
+  const [marketplace, setMarketplace] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [step, setStep] = useState(1);
-  const [selectedCredential, setSelectedCredential] = useState<UserCredential | null>(null);
-  const [userCredentials, setUserCredentials] = useState<UserCredential[]>([]);
+  const [selectedCredential, setSelectedCredential] = useState<any>(null);
+  const [userCredentials, setUserCredentials] = useState<any[]>([]);
   const [credentialStatuses, setCredentialStatuses] = useState<CredentialStatus[]>([]);
   const [issuingCredentials, setIssuingCredentials] = useState<Set<TradingPlatform>>(new Set());
   const [verifyingCredentials, setVerifyingCredentials] = useState<Set<TradingPlatform>>(new Set());
@@ -79,7 +58,7 @@ const TokenCreationForm: React.FC = () => {
     maxSupply: 1000000,
     initialLiquidity: {
       tokenAmount: 1000,
-      usdcAmount: 100, // Changed to USDC amount (100 USDC for initial liquidity)
+      usdcAmount: 100,
     },
   });
 
@@ -89,15 +68,30 @@ const TokenCreationForm: React.FC = () => {
   // Initialize marketplace service when wallet is connected
   useEffect(() => {
     const initMarketplace = async () => {
-      if (!airService || !isConnected || !userAddress) return;
+      if (!airService || !isConnected || !userAddress) {
+        console.log("Marketplace init skipped:", { airService: !!airService, isConnected, userAddress });
+        return;
+      }
 
       try {
+        console.log("Initializing marketplace...");
+        console.log("AirService provider:", airService.provider);
+
         // Get provider from AirService
         const provider = new ethers.BrowserProvider(airService.provider);
+        console.log("Provider created:", provider);
+
         const signer = await provider.getSigner();
+        console.log("Signer address:", await signer.getAddress());
 
         // Initialize marketplace with Moca Devnet (chainId: 5151)
         const marketplaceInstance = initializeMarketplace(provider, signer, 5151);
+        console.log("Marketplace initialized:", {
+          usdcAddress: marketplaceInstance.contracts.USDC,
+          hasSigner: !!marketplaceInstance.signer,
+          chainId: marketplaceInstance.chainId
+        });
+
         setMarketplace(marketplaceInstance);
       } catch (err) {
         console.error("Failed to initialize marketplace:", err);
@@ -177,7 +171,7 @@ const TokenCreationForm: React.FC = () => {
     }
   }, [searchParams, userCredentials]);
 
-  const handleCredentialSelect = (credential: UserCredential) => {
+  const handleCredentialSelect = (credential: any) => {
     setSelectedCredential(credential);
     setFormData((prev) => ({
       ...prev,
@@ -392,7 +386,7 @@ const TokenCreationForm: React.FC = () => {
           formData.maxSupply
         ),
         tokenTimeoutPromise
-      ]) as TokenCreationResult;
+      ]);
       console.log("Token creation result:", result);
 
       if (result && result.tokenAddress) {

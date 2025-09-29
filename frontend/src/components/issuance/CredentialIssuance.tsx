@@ -1,4 +1,4 @@
-import { AirService } from "@mocanetwork/airkit";
+// import { AirService } from "@mocanetwork/airkit";
 import { useState } from "react";
 import type { EnvironmentConfig } from "../../config/environments";
 import { generateJwt, getJwtPayload, EXAMPLE_JWKS_URL } from "../../utils";
@@ -22,15 +22,11 @@ interface CredentialField {
 }
 
 interface CredentialIssuanceProps {
-  airService: AirService | null;
-  isLoggedIn: boolean;
   partnerId: string;
   environmentConfig: EnvironmentConfig;
 }
 
 const CredentialIssuance = ({
-  airService,
-  isLoggedIn,
   partnerId,
   environmentConfig,
 }: CredentialIssuanceProps) => {
@@ -135,22 +131,22 @@ const CredentialIssuance = ({
         setIsLoading(false);
         return;
       }
-      const credentialSubject = convertFieldsToCredentialSubject();
+      // const credentialSubject = convertFieldsToCredentialSubject();
 
-      if (!airService) {
-        setError(
-          "AirService is not initialized. Please check your partner ID."
-        );
-        setIsLoading(false);
-        return;
-      }
+      // if (!airService) {
+      //   setError(
+      //     "AirService is not initialized. Please check your partner ID."
+      //   );
+      //   setIsLoading(false);
+      //   return;
+      // }
 
-      await airService.issueCredential({
-        authToken: jwt,
-        credentialId: config.credentialId,
-        credentialSubject: credentialSubject,
-        issuerDid: config.issuerDid,
-      });
+      // await airService.issueCredential({
+      //   authToken: jwt,
+      //   credentialId: config.credentialId,
+      //   credentialSubject: credentialSubject,
+      //   issuerDid: config.issuerDid,
+      // });
 
       setIsSuccess(true);
     } catch (err) {
@@ -228,7 +224,7 @@ const CredentialIssuance = ({
 
   const isDisabled =
     isLoading ||
-    !isLoggedIn ||
+    // !isLoggedIn ||
     !generatedJwt ||
     !config.issuerDid ||
     !config.credentialId ||

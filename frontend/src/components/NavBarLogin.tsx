@@ -21,6 +21,8 @@ import {
 import UsdcMintDialog from "@/components/dialogs/UsdcMintDialog";
 import type { AirConnector, AirConnectorProperties } from "@mocanetwork/airkit-connector";
 import { mocaDevnet } from "@/config/wagmi";
+import { ethers } from "ethers";
+import { initializeMarketplace } from "@/services/credential-marketplace";
 
 // Create public client for Moca devnet
 const mocaPublicClient = createPublicClient({
@@ -33,30 +35,80 @@ const NavBarLogin = () => {
   const [mocaBalance, setMocaBalance] = useState(0);
   const [showMintDialog, setShowMintDialog] = useState(false);
   const [currentEnv, setCurrentEnv] = useState("sandbox");
+  const [marketplace, setMarketplace] = useState<ReturnType<typeof initializeMarketplace> | null>(null);
 
   const { connect, connectors, isPending: isConnecting } = useConnect();
-  const { address: userAddress, connector, isConnected } = useAccount();
+  const { address: userAddress, isConnected, connector } = useAccount();
   const { disconnect } = useDisconnect();
 
   // Check if connected wallet is AirKit wallet
   const isAirWalletConnector = (connector as Connector & AirConnectorProperties)?.isMocaNetwork;
 
-  // Access to airService through connector when needed
-  // const airConnector = useMemo<AirConnector | null>(() => {
-  //   if (isAirWalletConnector && connector) {
-  //     return connector as AirConnector;
-  //   }
-  //   return null;
-  // }, [connector, isAirWalletConnector]);
+  const airConnector = useMemo<AirConnector | null>(() => {
+    if (isAirWalletConnector && connector) {
+      return connector as AirConnector;
+    }
+    return null;
+  }, [connector, isAirWalletConnector]);
+
+  const airService = airConnector?.airService;
+
+  // Initialize marketplace service when wallet is connected
+  useEffect(() => {
+    const initMarketplace = async () => {
+      if (!airService || !isConnected || !userAddress) {
+        return;
+      }
+
+      try {
+        // Get provider from AirService
+        const provider = new ethers.BrowserProvider(airService.provider);
+        const signer = await provider.getSigner();
+
+        // Initialize marketplace with Moca Devnet (chainId: 5151)
+        const marketplaceInstance = initializeMarketplace(provider, signer, 5151);
+        setMarketplace(marketplaceInstance);
+      } catch (err) {
+        console.error("Failed to initialize marketplace:", err);
+      }
+    };
+
+    initMarketplace();
+  }, [airService, isConnected, userAddress]);
 
   // Load balances when user is connected
   useEffect(() => {
     const loadBalances = async () => {
       if (isConnected && userAddress) {
-        // Load USDC balance from localStorage (mock)
-        const storedUsdcBalance = localStorage.getItem(`usdc_balance_${userAddress}`);
-        const usdcBal = storedUsdcBalance ? parseInt(storedUsdcBalance) : 0;
-        setUsdcBalance(usdcBal);
+        // Load USDC balance from blockchain
+        if (marketplace) {
+          try {
+            // Try marketplace method first
+            try {
+              const balanceWei = await marketplace.getUSDCBalance(userAddress);
+              const balance = parseFloat(marketplace.formatUSDC(balanceWei));
+              setUsdcBalance(balance);
+            } catch (marketplaceError) {
+              console.warn("Marketplace method failed, trying direct contract call:", marketplaceError);
+
+              // Fallback: Direct contract call
+              const usdcContract = new ethers.Contract(
+                '0x12D2162F47AAAe1B0591e898648605daA186D644',
+                ['function balanceOf(address) view returns (uint256)'],
+                marketplace.provider
+              );
+
+              const balanceWei = await usdcContract.balanceOf(userAddress);
+              const balance = parseFloat(ethers.formatUnits(balanceWei, 6)); // USDC has 6 decimals
+              setUsdcBalance(balance);
+            }
+          } catch (error) {
+            console.error("Failed to load USDC balance:", error);
+            setUsdcBalance(0);
+          }
+        } else {
+          setUsdcBalance(0);
+        }
 
         // Fetch actual MOCA balance from Moca devnet
         try {
@@ -76,10 +128,33 @@ const NavBarLogin = () => {
     };
 
     loadBalances();
-  }, [isConnected, userAddress]);
+  }, [isConnected, userAddress, marketplace]);
 
-  const handleBalanceUpdate = (newBalance: number) => {
-    setUsdcBalance(newBalance);
+  const handleBalanceUpdate = async () => {
+    // Reload USDC balance from blockchain after minting
+    if (isConnected && userAddress && marketplace) {
+      try {
+        // Try marketplace method first
+        try {
+          const balanceWei = await marketplace.getUSDCBalance(userAddress);
+          const balance = parseFloat(marketplace.formatUSDC(balanceWei));
+          setUsdcBalance(balance);
+        } catch (_marketplaceError) {
+          // Fallback: Direct contract call
+          const usdcContract = new ethers.Contract(
+            '0x12D2162F47AAAe1B0591e898648605daA186D644',
+            ['function balanceOf(address) view returns (uint256)'],
+            marketplace.provider
+          );
+
+          const balanceWei = await usdcContract.balanceOf(userAddress);
+          const balance = parseFloat(ethers.formatUnits(balanceWei, 6)); // USDC has 6 decimals
+          setUsdcBalance(balance);
+        }
+      } catch (error) {
+        console.error("Failed to reload USDC balance:", error);
+      }
+    }
   };
 
   const handleConnect = () => {

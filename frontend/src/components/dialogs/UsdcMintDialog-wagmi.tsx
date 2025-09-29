@@ -16,7 +16,7 @@ import { Label } from "@/components/ui/label";
 import { useAccount, type Connector } from "wagmi";
 import { ethers } from "ethers";
 import { initializeMarketplace } from "@/services/credential-marketplace";
-import { AirConnector, AirConnectorProperties } from "@mocanetwork/airkit-connector";
+import type { AirConnector, AirConnectorProperties } from "@mocanetwork/airkit-connector";
 
 interface UsdcMintDialogProps {
   isOpen: boolean;

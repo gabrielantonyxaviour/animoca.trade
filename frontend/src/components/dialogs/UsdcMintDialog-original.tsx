@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { Loader2, DollarSign, CheckCircle, AlertCircle } from "lucide-react";
 import {
   Dialog,
@@ -13,14 +13,16 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useAccount, type Connector } from "wagmi";
+import { AirService } from "@mocanetwork/airkit";
 import { ethers } from "ethers";
 import { initializeMarketplace } from "@/services/credential-marketplace";
-import type { AirConnector, AirConnectorProperties } from "@mocanetwork/airkit-connector";
 
 interface UsdcMintDialogProps {
   isOpen: boolean;
   onClose: () => void;
+  userAddress: string | null;
+  isLoggedIn: boolean;
+  airService: AirService | null;
   onBalanceUpdate?: (newBalance: number) => void;
 }
 
@@ -33,22 +35,11 @@ interface TransactionState {
 const UsdcMintDialog = ({
   isOpen,
   onClose,
+  userAddress,
+  isLoggedIn,
+  airService,
   onBalanceUpdate
 }: UsdcMintDialogProps) => {
-  const { address: userAddress, connector, isConnected } = useAccount();
-
-  // Check if connected wallet is AirKit wallet
-  const isAirWalletConnector = (connector as Connector & AirConnectorProperties)?.isMocaNetwork;
-
-  const airConnector = useMemo<AirConnector | null>(() => {
-    if (isAirWalletConnector && connector) {
-      return connector as AirConnector;
-    }
-    return null;
-  }, [connector, isAirWalletConnector]);
-
-  const airService = airConnector?.airService;
-
   const [mintAmount, setMintAmount] = useState("1000");
   const [currentBalance, setCurrentBalance] = useState(0);
   const [isLoadingBalance, setIsLoadingBalance] = useState(false);
@@ -58,8 +49,8 @@ const UsdcMintDialog = ({
   // Initialize marketplace service when wallet is connected
   useEffect(() => {
     const initMarketplace = async () => {
-      if (!airService || !isConnected || !userAddress) {
-        console.log("Marketplace init skipped:", { airService: !!airService, isConnected, userAddress });
+      if (!airService || !isLoggedIn || !userAddress) {
+        console.log("Marketplace init skipped:", { airService: !!airService, isLoggedIn, userAddress });
         return;
       }
 
@@ -93,14 +84,14 @@ const UsdcMintDialog = ({
     };
 
     initMarketplace();
-  }, [airService, isConnected, userAddress]);
+  }, [airService, isLoggedIn, userAddress]);
 
   // Load current USDC balance
   useEffect(() => {
-    if (isOpen && isConnected && userAddress && marketplace) {
+    if (isOpen && isLoggedIn && userAddress && marketplace) {
       loadBalance();
     }
-  }, [isOpen, isConnected, userAddress, marketplace]);
+  }, [isOpen, isLoggedIn, userAddress, marketplace]);
 
   const loadBalance = async () => {
     if (!marketplace || !userAddress) {
@@ -153,7 +144,7 @@ const UsdcMintDialog = ({
   };
 
   const handleMint = async () => {
-    if (!isConnected || !userAddress || !marketplace) {
+    if (!isLoggedIn || !userAddress || !marketplace) {
       setTransaction({
         status: 'error',
         error: 'Please connect your wallet first'
@@ -290,7 +281,7 @@ const UsdcMintDialog = ({
 
         <div className="space-y-6 py-4">
           {/* Connection Status */}
-          {!isConnected && (
+          {!isLoggedIn && (
             <div className="bg-red-900/20 rounded-lg p-4">
               <div className="flex items-center text-red-400">
                 <AlertCircle className="w-4 h-4 mr-2" />
@@ -336,7 +327,7 @@ const UsdcMintDialog = ({
                 placeholder="Enter amount"
                 value={mintAmount}
                 onChange={(e) => setMintAmount(e.target.value)}
-                disabled={isProcessing || !isConnected}
+                disabled={isProcessing || !isLoggedIn}
                 className="pr-16"
                 min="1"
                 step="1"
@@ -352,7 +343,7 @@ const UsdcMintDialog = ({
                   variant="outline"
                   size="sm"
                   onClick={() => setMintAmount(amount.toString())}
-                  disabled={isProcessing || !isConnected}
+                  disabled={isProcessing || !isLoggedIn}
                   className="flex-1 text-xs"
                 >
                   {amount.toLocaleString()}
@@ -400,6 +391,7 @@ const UsdcMintDialog = ({
               )}
             </div>
           )}
+
         </div>
 
         <DialogFooter className="flex gap-2">
@@ -415,7 +407,7 @@ const UsdcMintDialog = ({
           {transaction.status !== 'success' && (
             <Button
               onClick={handleMint}
-              disabled={isProcessing || !isConnected}
+              disabled={isProcessing || !isLoggedIn}
               className="flex-1 bg-green-600 hover:bg-green-700"
             >
               {isProcessing ? (

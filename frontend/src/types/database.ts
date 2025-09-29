@@ -17,11 +17,13 @@ export interface UpdateUserData {
   reputation_score?: number
 }
 
-export enum CredentialStatus {
-  PENDING = 'pending',
-  VALIDATED = 'validated',
-  REJECTED = 'rejected',
-}
+export const CredentialStatus = {
+  PENDING: 'pending',
+  VALIDATED: 'validated',
+  REJECTED: 'rejected',
+} as const;
+
+export type CredentialStatus = typeof CredentialStatus[keyof typeof CredentialStatus];
 
 export interface Credential {
   id: string
@@ -53,11 +55,13 @@ export interface UpdateCredentialData {
   token_symbol?: string
 }
 
-export enum TokenGenerationStatus {
-  PENDING = 'pending',
-  COMPLETED = 'completed',
-  FAILED = 'failed',
-}
+export const TokenGenerationStatus = {
+  PENDING: 'pending',
+  COMPLETED: 'completed',
+  FAILED: 'failed',
+} as const;
+
+export type TokenGenerationStatus = typeof TokenGenerationStatus[keyof typeof TokenGenerationStatus];
 
 export interface TokenGeneration {
   id: string

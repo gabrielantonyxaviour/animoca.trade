@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { RefreshCw } from "lucide-react";
-import { initializeMarketplace, getMarketplace } from "@/services/credential-marketplace";
+import { initializeMarketplace } from "@/services/credential-marketplace";
 
 interface CredentialMarketsProps {
   airService: AirService | null;
@@ -63,7 +63,7 @@ const CredentialMarkets: React.FC<CredentialMarketsProps> = ({
   const [filterType, setFilterType] = useState<"all" | "verified" | "tokenized">("all");
   const [userCredentials, setUserCredentials] = useState<Credential[]>([]);
   const [totalValue, setTotalValue] = useState(0);
-  const [totalClaimable, setTotalClaimable] = useState(0);
+  const [totalClaimable] = useState(0);
 
   // Marketplace service states
   const [marketplace, setMarketplace] = useState<any>(null);
@@ -200,7 +200,7 @@ const CredentialMarkets: React.FC<CredentialMarketsProps> = ({
 
       for (const token of createdTokens) {
         try {
-          const tokenInfo = await marketplace.getTokenInfo(token.tokenAddress);
+          await marketplace.getTokenInfo(token.tokenAddress);
           const provider = marketplace.provider;
           const tokenContract = new ethers.Contract(token.tokenAddress, ['function balanceOf(address) view returns (uint256)'], provider);
           const balance = await tokenContract.balanceOf(userAddress);

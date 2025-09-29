@@ -13,7 +13,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { initializeMarketplace, getMarketplace } from '../../services/credential-marketplace';
+import { initializeMarketplace } from '../../services/credential-marketplace';
 import type { EnvironmentConfig } from '../../config/environments';
 
 interface PoolManagementProps {
@@ -37,6 +37,7 @@ interface PoolData {
   apy: number;
   tvl: string;
   currentPrice: string;
+  address: string;
   lpBalance?: string;
   lpValue?: string;
   shareOfPool?: number;
@@ -48,7 +49,7 @@ export default function PoolManagement({
   airService,
   isLoggedIn,
   userAddress,
-  environmentConfig
+  environmentConfig: _environmentConfig
 }: PoolManagementProps) {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('all');
@@ -106,7 +107,7 @@ export default function PoolManagement({
         try {
           const credentialId = marketplace.stringToBytes32(token.credentialId);
           const poolInfo = await marketplace.getPoolInfo(credentialId);
-          const tokenInfo = await marketplace.getTokenInfo(token.tokenAddress);
+          await marketplace.getTokenInfo(token.tokenAddress);
           const currentPrice = await marketplace.getTokenPrice(credentialId);
 
           // Calculate TVL in USDC
@@ -131,7 +132,8 @@ export default function PoolManagement({
             fees24h,
             apy,
             tvl,
-            currentPrice: marketplace.formatUSDC(currentPrice)
+            currentPrice: marketplace.formatUSDC(currentPrice),
+            address: token.tokenAddress
           };
 
           // Check if user has liquidity in this pool

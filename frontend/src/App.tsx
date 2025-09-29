@@ -1,32 +1,27 @@
-import { useState, useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate } from "react-router-dom";
+import { WagmiProvider } from "wagmi";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import "./App.css";
 import CredentialIssuance from "./components/issuance/CredentialIssuance";
 import CredentialVerification from "./components/verification/CredentialVerification";
-import CredentialMarkets from "./components/credentials/CredentialMarkets";
-import CredentialTradingPage from "./components/credentials/CredentialTradingPage";
-import TokenCreationForm from "./components/tokens/TokenCreationForm";
+import CredentialMarkets from "./components/credentials/CredentialMarkets-wagmi";
+import CredentialTradingPage from "./components/credentials/CredentialTradingPage-wagmi";
+import TokenCreationForm from "./components/tokens/TokenCreationForm-wagmi";
 import AnalyticsDashboard from "./components/analytics/AnalyticsDashboard";
-import NavBarLogin from "./components/NavBarLogin";
+import NavBarLogin from "./components/NavBarLogin-wagmi";
 import LandingPage from "./components/LandingPage";
 import { ThemeProvider } from "./components/theme-provider";
 import { Label } from "./components/ui/label";
-import { AirService, BUILD_ENV, type AirEventListener, type BUILD_ENV_TYPE } from "@mocanetwork/airkit";
-import { getEnvironmentConfig, type EnvironmentConfig } from "./config/environments";
+import { wagmiConfig, ISSUER_PARTNER_ID, VERIFIER_PARTNER_ID } from "./config/wagmi";
+import { getEnvironmentConfig } from "./config/environments";
+import { BUILD_ENV } from "@mocanetwork/airkit";
 
-// Get partner IDs from environment variables
-const ISSUER_PARTNER_ID = import.meta.env.VITE_ISSUER_PARTNER_ID || "66811bd6-dab9-41ef-8146-61f29d038a45";
-const VERIFIER_PARTNER_ID = import.meta.env.VITE_VERIFIER_PARTNER_ID || "66811bd6-dab9-41ef-8146-61f29d038a45";
-const enableLogging = true;
-
-const ENV_OPTIONS = [
-  { label: "staging", value: BUILD_ENV.STAGING },
-  { label: "sandbox", value: BUILD_ENV.SANDBOX },
-];
+// Create a client
+const queryClient = new QueryClient();
 
 // Component to get current flow title
 const FlowTitle = () => {
-  const navigate = useNavigate(); // Use the 
+  const navigate = useNavigate();
   return (
     <span
       className="text-pink-500 cursor-pointer"
@@ -49,40 +44,10 @@ const getDefaultPartnerId = (pathname: string): string => {
   return ISSUER_PARTNER_ID; // Default to issuer for root route
 };
 
-function AppRoutes({
-  airService,
-  isInitialized,
-  isLoading,
-  isLoggedIn,
-  userAddress,
-  handleLogin,
-  handleLogout,
-  currentEnv,
-  setCurrentEnv,
-  partnerId,
-  setPartnerId,
-  environmentConfig,
-}: {
-  airService: AirService | null;
-  isInitialized: boolean;
-  isLoading: boolean;
-  isLoggedIn: boolean;
-  userAddress: string | null;
-  handleLogin: () => void;
-  handleLogout: () => void;
-  currentEnv: BUILD_ENV_TYPE;
-  setCurrentEnv: (env: string) => void;
-  partnerId: string;
-  setPartnerId: (partnerId: string) => void;
-  environmentConfig: EnvironmentConfig;
-}) {
+function AppRoutes() {
   const location = useLocation();
-
-  // Update partner ID when route changes
-  useEffect(() => {
-    const defaultPartnerId = getDefaultPartnerId(location.pathname);
-    setPartnerId(defaultPartnerId);
-  }, [location.pathname, setPartnerId]);
+  const partnerId = getDefaultPartnerId(location.pathname);
+  const environmentConfig = getEnvironmentConfig(BUILD_ENV.SANDBOX);
 
   return (
     <div className="min-h-screen bg-black transition-colors">
@@ -126,17 +91,7 @@ function AppRoutes({
               </nav>
               <div className="flex items-center space-x-4">
                 <div className="w-full sm:w-auto">
-                  <NavBarLogin
-                    isLoading={isLoading}
-                    isInitialized={isInitialized}
-                    isLoggedIn={isLoggedIn}
-                    userAddress={userAddress}
-                    onLogin={handleLogin}
-                    onLogout={handleLogout}
-                    currentEnv={currentEnv}
-                    setCurrentEnv={(env) => setCurrentEnv(env as BUILD_ENV_TYPE)}
-                    envOptions={ENV_OPTIONS}
-                  />
+                  <NavBarLogin />
                 </div>
               </div>
             </div>
@@ -153,37 +108,19 @@ function AppRoutes({
           {/* Credential Markets */}
           <Route
             path="/creds"
-            element={
-              <CredentialMarkets
-                airService={airService}
-                isLoggedIn={isLoggedIn}
-                userAddress={userAddress}
-              />
-            }
+            element={<CredentialMarkets />}
           />
 
           {/* Create New Credential Token */}
           <Route
             path="/creds/create"
-            element={
-              <TokenCreationForm
-                airService={airService}
-                isLoggedIn={isLoggedIn}
-                userAddress={userAddress}
-              />
-            }
+            element={<TokenCreationForm />}
           />
 
           {/* Individual Credential Trading Page */}
           <Route
             path="/creds/:id"
-            element={
-              <CredentialTradingPage
-                airService={airService}
-                isLoggedIn={isLoggedIn}
-                userAddress={userAddress}
-              />
-            }
+            element={<CredentialTradingPage />}
           />
 
           {/* Analytics Dashboard */}
@@ -196,14 +133,11 @@ function AppRoutes({
             }
           />
 
-
           {/* Hidden Routes - Keep but don't show in navigation */}
           <Route
             path="/issue"
             element={
               <CredentialIssuance
-                airService={airService}
-                isLoggedIn={isLoggedIn}
                 partnerId={partnerId}
                 environmentConfig={environmentConfig}
               />
@@ -213,8 +147,6 @@ function AppRoutes({
             path="/verify"
             element={
               <CredentialVerification
-                airService={airService}
-                isLoggedIn={isLoggedIn}
                 partnerId={partnerId}
                 environmentConfig={environmentConfig}
               />
@@ -234,132 +166,16 @@ function AppRoutes({
 }
 
 function App() {
-  const [airService, setAirService] = useState<AirService | null>(null);
-  const [isInitialized, setIsInitialized] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [userAddress, setUserAddress] = useState<string | null>(null);
-  const [currentEnv, setCurrentEnv] = useState<BUILD_ENV_TYPE>(
-    BUILD_ENV.SANDBOX
-  );
-  const [partnerId, setPartnerId] = useState<string>(ISSUER_PARTNER_ID);
-
-  // Get environment config based on current environment
-  const environmentConfig = getEnvironmentConfig(currentEnv);
-
-  const initializeAirService = async (env: BUILD_ENV_TYPE = currentEnv, partnerIdToUse: string = partnerId) => {
-    if (!partnerIdToUse || partnerIdToUse === "your-partner-id") {
-      console.warn("No valid Partner ID configured for nav bar login");
-      setIsInitialized(true); // Set to true to prevent infinite loading
-      return;
-    }
-
-    // Reset initialization state
-    setIsInitialized(false);
-    console.log("Initializing AirService with env:", env, "partnerId:", partnerIdToUse);
-
-    try {
-      const service = new AirService({ partnerId: partnerIdToUse });
-      await service.init({ buildEnv: env as (typeof BUILD_ENV)[keyof typeof BUILD_ENV], enableLogging, skipRehydration: false });
-      setAirService(service);
-      setIsInitialized(true);
-      setIsLoggedIn(service.isLoggedIn);
-
-      if (service.isLoggedIn && service.loginResult) {
-        const result = service.loginResult;
-        console.log("result @ initializeAirService", result);
-        if (result.abstractAccountAddress) {
-          setUserAddress(result.abstractAccountAddress || null);
-        } else {
-          console.log("no abstractAccountAddress @ initializeAirService");
-          const accounts = await service?.provider.request({ method: "eth_accounts", params: [] });
-
-          console.log("accounts @ initializeAirService", accounts, service?.provider);
-          setUserAddress(Array.isArray(accounts) && accounts.length > 0 ? accounts[0] : null);
-        }
-      }
-
-      const eventListener: AirEventListener = async (data) => {
-        if (data.event === "logged_in") {
-          setIsLoggedIn(true);
-          if (data.result.abstractAccountAddress) {
-            setUserAddress(data.result.abstractAccountAddress || null);
-          } else {
-            const accounts = await service?.provider.request({ method: "eth_accounts", params: [] });
-            setUserAddress(Array.isArray(accounts) && accounts.length > 0 ? accounts[0] : null);
-          }
-        } else if (data.event === "logged_out") {
-          setIsLoggedIn(false);
-          setUserAddress(null);
-        }
-      };
-      service.on(eventListener);
-    } catch (err) {
-      console.error("Failed to initialize AIRKit service in nav bar:", err);
-      setIsInitialized(true); // Set to true to prevent infinite loading on error
-    }
-  };
-
-  // Initialize AIRKit on mount and when partner ID or environment changes
-  useEffect(() => {
-    initializeAirService(currentEnv, partnerId);
-
-    return () => {
-      if (airService) {
-        airService.cleanUp();
-      }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentEnv, partnerId]);
-
-  const handleLogin = async () => {
-    if (!airService) return;
-    setIsLoading(true);
-    try {
-      const loginResult = await airService.login();
-
-      if (loginResult.abstractAccountAddress) {
-        setUserAddress(loginResult.abstractAccountAddress || null);
-      } else {
-        const accounts = await airService?.provider.request({ method: "eth_accounts", params: [] });
-        setUserAddress(Array.isArray(accounts) && accounts.length > 0 ? accounts[0] : null);
-      }
-    } catch (err) {
-      console.error("Login failed:", err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleLogout = async () => {
-    if (!airService) return;
-    try {
-      await airService.logout();
-      setUserAddress(null);
-    } catch (err) {
-      console.error("Logout error:", err);
-    }
-  };
-
   return (
-    <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
-      <Router>
-        <AppRoutes
-          airService={airService}
-          isInitialized={isInitialized}
-          isLoading={isLoading}
-          isLoggedIn={isLoggedIn}
-          userAddress={userAddress}
-          handleLogin={handleLogin}
-          handleLogout={handleLogout}
-          currentEnv={currentEnv}
-          setCurrentEnv={(env) => setCurrentEnv(env as BUILD_ENV_TYPE)}
-          partnerId={partnerId}
-          setPartnerId={setPartnerId}
-          environmentConfig={environmentConfig}
-        />
-      </Router>
-    </ThemeProvider>
+    <WagmiProvider config={wagmiConfig}>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
+          <Router>
+            <AppRoutes />
+          </Router>
+        </ThemeProvider>
+      </QueryClientProvider>
+    </WagmiProvider>
   );
 }
 

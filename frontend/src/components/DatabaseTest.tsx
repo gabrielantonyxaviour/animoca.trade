@@ -1,6 +1,5 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { UserService, CredentialService, TokenGenerationService } from '../services/database'
-import type { User, Credential, TokenGeneration } from '../services/database'
 
 export const DatabaseTest: React.FC = () => {
   const [status, setStatus] = useState<string>('Ready to test')

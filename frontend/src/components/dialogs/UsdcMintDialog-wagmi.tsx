@@ -16,7 +16,7 @@ import { Label } from "@/components/ui/label";
 import { useAccount, type Connector } from "wagmi";
 import { ethers } from "ethers";
 import { initializeMarketplace } from "@/services/credential-marketplace";
-import type { AirConnector, AirConnectorProperties } from "@mocanetwork/airkit-connector";
+import { AirConnector, AirConnectorProperties } from "@mocanetwork/airkit-connector";
 
 interface UsdcMintDialogProps {
   isOpen: boolean;
@@ -400,6 +400,16 @@ const UsdcMintDialog = ({
               )}
             </div>
           )}
+
+          {/* Contract Info */}
+          <div className="text-xs text-muted-foreground bg-blue-900/20 rounded p-2">
+            <p className="font-medium mb-1">ℹ️ Development Notice</p>
+            <p>This mints real test USDC tokens on the blockchain for development purposes.</p>
+            <p className="mt-1">Network: Moca Devnet (Chain ID: 5151)</p>
+            {marketplace && (
+              <p className="mt-1">Contract: {marketplace.contracts.USDC.slice(0, 10)}...{marketplace.contracts.USDC.slice(-8)}</p>
+            )}
+          </div>
         </div>
 
         <DialogFooter className="flex gap-2">

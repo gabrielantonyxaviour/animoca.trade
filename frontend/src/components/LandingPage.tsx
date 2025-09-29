@@ -21,7 +21,7 @@ const LandingPage = () => {
             <Button
               size="lg"
               className="bg-pink-600 hover:bg-pink-700 text-white border-2 border-pink-500 px-8 py-3 text-lg"
-              onClick={() => window.location.href = '/tokens'}
+              onClick={() => window.location.href = '/creds'}
             >
               Start Trading
               <ArrowRight className="ml-2 h-5 w-5" />
@@ -205,7 +205,7 @@ const LandingPage = () => {
             <Button
               size="lg"
               className="bg-pink-600 hover:bg-pink-700 text-white border-2 border-pink-500 px-12 py-4 text-xl"
-              onClick={() => window.location.href = '/tokens'}
+              onClick={() => window.location.href = '/creds'}
             >
               Get Started
               <ArrowRight className="ml-2 h-6 w-6" />

@@ -79,9 +79,34 @@ class CredentialMarketplace {
   }
 
   async mintTestUSDC(amount) {
-    if (!this.signer) throw new Error('Signer required for this operation');
-    const tx = await this.usdcSigner.freeMint(this.signer.address, this.parseUSDC(amount));
-    return await tx.wait();
+    console.log("marketplace.mintTestUSDC called with amount:", amount);
+
+    if (!this.signer) {
+      console.error("No signer available for minting");
+      throw new Error('Signer required for this operation');
+    }
+
+    console.log("Signer address:", await this.signer.getAddress());
+    console.log("USDC contract address:", this.contracts.USDC);
+    console.log("Has usdcSigner:", !!this.usdcSigner);
+
+    try {
+      const parsedAmount = this.parseUSDC(amount);
+      console.log("Parsed amount (wei):", parsedAmount.toString());
+
+      console.log("Calling freeMint...");
+      const tx = await this.usdcSigner.freeMint(this.signer.address, parsedAmount);
+      console.log("Transaction sent:", tx.hash);
+
+      console.log("Waiting for confirmation...");
+      const receipt = await tx.wait();
+      console.log("Transaction confirmed:", receipt.transactionHash);
+
+      return receipt;
+    } catch (error) {
+      console.error("mintTestUSDC failed:", error);
+      throw error;
+    }
   }
 
   async approveUSDC(spender, amount) {
@@ -216,7 +241,7 @@ class CredentialMarketplace {
       tokenAddress,
       tokenAmount
     );
-    return { usdcOut, fee, effectivePrice: usdcOut.mul(ethers.utils.parseEther('1')).div(tokenAmount) };
+    return { usdcOut, fee, effectivePrice: usdcOut * ethers.parseEther('1') / tokenAmount };
   }
 
   // Pool information

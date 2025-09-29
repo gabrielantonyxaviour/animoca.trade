@@ -29,6 +29,7 @@ export const CONTRACT_ADDRESSES = {
     CREDENTIAL_TOKEN_FACTORY: '0xa6a621e9C92fb8DFC963d2C20e8C5CB4C5178cBb',
     FEE_COLLECTOR: '0x62A3E29afc75a91f40599f4f7314fF46eBa9bF93',
     CREDENTIAL_AMM: '0x60DdECC1f8Fa85b531D4891Ac1901Ab263066A67',
+    PASSIVE_TOKEN_GENERATOR: '',
   },
   sepolia: {
     // Will be populated for sepolia deployment
@@ -36,6 +37,7 @@ export const CONTRACT_ADDRESSES = {
     CREDENTIAL_TOKEN_FACTORY: '',
     FEE_COLLECTOR: '',
     CREDENTIAL_AMM: '',
+    PASSIVE_TOKEN_GENERATOR: '',
   },
   mainnet: {
     // Will be populated for production deployment
@@ -43,6 +45,7 @@ export const CONTRACT_ADDRESSES = {
     CREDENTIAL_TOKEN_FACTORY: '',
     FEE_COLLECTOR: '',
     CREDENTIAL_AMM: '',
+    PASSIVE_TOKEN_GENERATOR: '',
   },
 } as const;
 

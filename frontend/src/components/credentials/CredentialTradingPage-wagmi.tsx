@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { AirService } from "@mocanetwork/airkit";
+import { useAccount, type Connector } from "wagmi";
 import { ethers } from "ethers";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,12 +12,7 @@ import { ArrowLeft, TrendingUp, TrendingDown, DollarSign, CheckCircle, Zap } fro
 import PriceCharts from "@/components/analytics/PriceCharts";
 import { useRealTimePrices } from "@/hooks/useRealTimePrices";
 import { initializeMarketplace } from "@/services/credential-marketplace";
-
-interface CredentialTradingPageProps {
-  airService: AirService | null;
-  isLoggedIn: boolean;
-  userAddress: string | null;
-}
+import { AirConnector, AirConnectorProperties } from "@mocanetwork/airkit-connector";
 
 interface CredentialStats {
   totalIssuances: number;
@@ -36,14 +31,23 @@ interface TradeFormData {
   slippage: number;
 }
 
-const CredentialTradingPage: React.FC<CredentialTradingPageProps> = ({
-  airService,
-  isLoggedIn,
-  userAddress,
-}) => {
+const CredentialTradingPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { prices, updatePrice: _updatePrice } = useRealTimePrices();
+  const { address: userAddress, connector, isConnected } = useAccount();
+
+  // Check if connected wallet is AirKit wallet
+  const isAirWalletConnector = (connector as Connector & AirConnectorProperties)?.isMocaNetwork;
+
+  const airConnector = useMemo<AirConnector | null>(() => {
+    if (isAirWalletConnector && connector) {
+      return connector as AirConnector;
+    }
+    return null;
+  }, [connector, isAirWalletConnector]);
+
+  const airService = airConnector?.airService;
 
   const [credential, setCredential] = useState<any>(null);
   const [stats, setStats] = useState<CredentialStats | null>(null);
@@ -97,7 +101,7 @@ const CredentialTradingPage: React.FC<CredentialTradingPageProps> = ({
   // Initialize marketplace service when wallet is connected
   useEffect(() => {
     const initMarketplace = async () => {
-      if (!airService || !isLoggedIn || !userAddress) return;
+      if (!airService || !isConnected || !userAddress) return;
 
       try {
         // Get provider from AirService
@@ -113,7 +117,7 @@ const CredentialTradingPage: React.FC<CredentialTradingPageProps> = ({
     };
 
     initMarketplace();
-  }, [airService, isLoggedIn, userAddress]);
+  }, [airService, isConnected, userAddress]);
 
   // Load data when component mounts
   useEffect(() => {
@@ -190,7 +194,7 @@ const CredentialTradingPage: React.FC<CredentialTradingPageProps> = ({
   };
 
   const handleTrade = async () => {
-    if (!isLoggedIn || !credential || !tradeForm.amount || !marketplace) return;
+    if (!isConnected || !credential || !tradeForm.amount || !marketplace) return;
 
     setIsTrading(true);
     try {
@@ -270,7 +274,7 @@ const CredentialTradingPage: React.FC<CredentialTradingPageProps> = ({
     );
   }
 
-  if (!isLoggedIn) {
+  if (!isConnected) {
     return (
       <div className="flex-1 p-4 lg:p-8">
         <div className="max-w-7xl mx-auto">

@@ -49,9 +49,15 @@ export default function PriceCharts({
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    console.log('Chart component mounted, container ref:', chartContainerRef.current);
     if (chartContainerRef.current && !chartRef.current) {
+      console.log('Initializing chart...');
       initializeChart();
     }
+
+    // Load data immediately
+    console.log('Loading price data...');
+    loadPriceData();
 
     return () => {
       if (chartRef.current) {
@@ -62,7 +68,8 @@ export default function PriceCharts({
   }, []);
 
   useEffect(() => {
-    if (tokenAddress && oracleAddress) {
+    // Always load data (now using static data)
+    if (true) {
       loadPriceData();
       const interval = setInterval(loadPriceData, 60000); // Update every minute
       return () => clearInterval(interval);
@@ -76,27 +83,32 @@ export default function PriceCharts({
   }, [chartType, priceData, candleData]);
 
   const initializeChart = () => {
-    if (!chartContainerRef.current) return;
+    console.log('initializeChart called, container ref:', chartContainerRef.current);
+    if (!chartContainerRef.current) {
+      console.log('No container ref, returning');
+      return;
+    }
 
+    console.log('Creating chart...');
     chartRef.current = createChart(chartContainerRef.current, {
       width: chartContainerRef.current.clientWidth,
       height: 400,
       layout: {
         background: { type: ColorType.Solid, color: 'transparent' },
-        textColor: '#333',
+        textColor: 'hsl(var(--foreground))',
       },
       grid: {
-        vertLines: { color: '#e0e0e0', style: 1 },
-        horzLines: { color: '#e0e0e0', style: 1 },
+        vertLines: { color: 'hsl(var(--border))', style: 1 },
+        horzLines: { color: 'hsl(var(--border))', style: 1 },
       },
       crosshair: {
         mode: 1,
       },
       rightPriceScale: {
-        borderColor: '#e0e0e0',
+        borderColor: 'hsl(var(--border))',
       },
       timeScale: {
-        borderColor: '#e0e0e0',
+        borderColor: 'hsl(var(--border))',
         timeVisible: true,
         secondsVisible: false,
       },
@@ -176,6 +188,7 @@ export default function PriceCharts({
 
   const loadPriceData = async () => {
     try {
+      console.log('loadPriceData started');
       setIsLoading(true);
 
       // Generate mock data based on timeframe
@@ -266,6 +279,7 @@ export default function PriceCharts({
         });
       }
 
+      console.log('Setting data - points:', points.length, 'candles:', candles.length, 'volumes:', volumes.length);
       setPriceData(points);
       setCandleData(candles);
       setVolumeData(volumes);
@@ -277,6 +291,7 @@ export default function PriceCharts({
       setPriceChange(((lastPrice - firstPrice) / firstPrice) * 100);
       setTwap(points.reduce((sum, p) => sum + p.value, 0) / points.length);
 
+      console.log('Price data loaded - current price:', lastPrice, 'change:', ((lastPrice - firstPrice) / firstPrice) * 100);
       setIsLoading(false);
     } catch (error) {
       console.error('Error loading price data:', error);
@@ -362,19 +377,19 @@ export default function PriceCharts({
           <>
             <div ref={chartContainerRef} className="w-full h-96 mb-4" />
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-gray-50 rounded-lg">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-muted rounded-lg">
               <div>
-                <div className="text-sm text-gray-600">TWAP ({getTimeframeLabel(timeframe)})</div>
+                <div className="text-sm text-muted-foreground">TWAP ({getTimeframeLabel(timeframe)})</div>
                 <div className="text-lg font-bold">${twap.toFixed(2)}</div>
               </div>
               <div>
-                <div className="text-sm text-gray-600">24h Volume</div>
+                <div className="text-sm text-muted-foreground">24h Volume</div>
                 <div className="text-lg font-bold">
                   ${(volumeData.reduce((sum, v) => sum + v.value, 0) / 1000).toFixed(1)}K
                 </div>
               </div>
               <div>
-                <div className="text-sm text-gray-600">High ({timeframe})</div>
+                <div className="text-sm text-muted-foreground">High ({timeframe})</div>
                 <div className="text-lg font-bold">
                   ${Math.max(...priceData.map(p => p.value)).toFixed(2)}
                 </div>
@@ -387,24 +402,24 @@ export default function PriceCharts({
               </div>
             </div>
 
-            <div className="mt-4 p-4 bg-pink-50 rounded-lg">
+            <div className="mt-4 p-4 bg-muted/50 rounded-lg">
               <h4 className="font-bold text-sm mb-2 flex items-center gap-2">
                 <Activity className="w-4 h-4" />
                 Technical Indicators
               </h4>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
                 <div>
-                  <span className="text-gray-600">RSI (14):</span>
+                  <span className="text-muted-foreground">RSI (14):</span>
                   <span className="font-semibold ml-1">52.3</span>
                   <Badge variant="outline" className="ml-2 text-xs">Neutral</Badge>
                 </div>
                 <div>
-                  <span className="text-gray-600">MACD:</span>
+                  <span className="text-muted-foreground">MACD:</span>
                   <span className="font-semibold ml-1">0.125</span>
-                  <Badge className="ml-2 text-xs bg-pink-600">Bullish</Badge>
+                  <Badge variant="default" className="ml-2 text-xs">Bullish</Badge>
                 </div>
                 <div>
-                  <span className="text-gray-600">Volume Trend:</span>
+                  <span className="text-muted-foreground">Volume Trend:</span>
                   <span className="font-semibold ml-1">↑ 15%</span>
                   <Badge className="ml-2 text-xs bg-pink-600">Increasing</Badge>
                 </div>

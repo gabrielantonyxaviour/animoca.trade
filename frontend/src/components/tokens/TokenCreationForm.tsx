@@ -75,7 +75,7 @@ const TokenCreationForm: React.FC = () => {
     credentialId: "",
     name: "",
     symbol: "",
-    emissionRate: 100,
+    emissionRate: 10, // Default emission rate of 10 tokens per day
     maxSupply: 1000000,
     initialLiquidity: {
       tokenAmount: 1000,
@@ -321,9 +321,6 @@ const TokenCreationForm: React.FC = () => {
     if (!formData.symbol || formData.symbol.length > 6) {
       errors.symbol = "Symbol is required (max 6 characters)";
     }
-    if (formData.emissionRate < 1 || formData.emissionRate > 10000) {
-      errors.emissionRate = "Emission rate must be between 1 and 10000";
-    }
     if (formData.maxSupply < 1000) {
       errors.maxSupply = "Max supply must be at least 1000";
     }
@@ -375,7 +372,6 @@ const TokenCreationForm: React.FC = () => {
         credentialId: formData.credentialId,
         name: formData.name,
         symbol: formData.symbol,
-        emissionRate: formData.emissionRate,
         maxSupply: formData.maxSupply
       });
 
@@ -429,7 +425,6 @@ const TokenCreationForm: React.FC = () => {
           tokenName: formData.name,
           tokenSymbol: formData.symbol,
           tokenAddress: tokenAddress,
-          emissionRate: formData.emissionRate,
           maxSupply: formData.maxSupply,
           initialLiquidity: formData.initialLiquidity,
           createdAt: new Date().toISOString(),
@@ -757,75 +752,36 @@ const TokenCreationForm: React.FC = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="emissionRate">
-                    Emission Rate (tokens/day)
-                  </Label>
-                  <Input
-                    id="emissionRate"
-                    type="number"
-                    value={formData.emissionRate}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        emissionRate: parseInt(e.target.value) || 0,
-                      }))
-                    }
-                    placeholder="100"
-                  />
-                  {validationErrors.emissionRate && (
-                    <p className="text-sm text-red-600 mt-1">
-                      {validationErrors.emissionRate}
-                    </p>
-                  )}
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Rate at which credential holders earn tokens
+              <div>
+                <Label htmlFor="maxSupply">Max Supply</Label>
+                <Input
+                  id="maxSupply"
+                  type="number"
+                  value={formData.maxSupply}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      maxSupply: parseInt(e.target.value) || 0,
+                    }))
+                  }
+                  placeholder="1000000"
+                />
+                {validationErrors.maxSupply && (
+                  <p className="text-sm text-red-600 mt-1">
+                    {validationErrors.maxSupply}
                   </p>
-                </div>
-                <div>
-                  <Label htmlFor="maxSupply">Max Supply</Label>
-                  <Input
-                    id="maxSupply"
-                    type="number"
-                    value={formData.maxSupply}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        maxSupply: parseInt(e.target.value) || 0,
-                      }))
-                    }
-                    placeholder="1000000"
-                  />
-                  {validationErrors.maxSupply && (
-                    <p className="text-sm text-red-600 mt-1">
-                      {validationErrors.maxSupply}
-                    </p>
-                  )}
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Maximum tokens that can ever exist
-                  </p>
-                </div>
+                )}
+                <p className="text-xs text-muted-foreground mt-1">
+                  Maximum tokens that can ever exist
+                </p>
               </div>
 
               <div className="p-4 bg-muted rounded-lg">
-                <h4 className="font-medium mb-2">Token Economics</h4>
+                <h4 className="font-medium mb-2">Token Info</h4>
                 <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Daily emission:</span>
-                    <span>{formData.emissionRate} tokens</span>
-                  </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Max supply:</span>
                     <span>{formData.maxSupply.toLocaleString()} tokens</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">
-                      Time to max supply:
-                    </span>
-                    <span>
-                      {Math.round(formData.maxSupply / formData.emissionRate)} days
-                    </span>
                   </div>
                 </div>
               </div>

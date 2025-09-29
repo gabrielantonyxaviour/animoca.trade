@@ -111,36 +111,34 @@ const UsdcMintDialog = ({
     setIsLoadingBalance(true);
     try {
       console.log("Loading USDC balance for:", userAddress);
-      console.log("USDC Contract address:", marketplace.contracts.USDC);
+      console.log("USDC Contract address: 0x12D2162F47AAAe1B0591e898648605daA186D644");
+      console.log("Provider network:", await marketplace.provider.getNetwork());
 
-      // Try marketplace method first
-      try {
-        const balanceWei = await marketplace.getUSDCBalance(userAddress);
-        console.log("Balance wei:", balanceWei.toString());
+      // Direct contract call to balanceOf with timeout
+      const usdcContract = new ethers.Contract(
+        '0x12D2162F47AAAe1B0591e898648605daA186D644',
+        ['function balanceOf(address) view returns (uint256)'],
+        marketplace.provider
+      );
 
-        const balance = parseFloat(marketplace.formatUSDC(balanceWei));
-        console.log("Formatted balance:", balance);
+      console.log("About to call balanceOf...");
 
-        setCurrentBalance(balance);
-        return;
-      } catch (marketplaceError) {
-        console.warn("Marketplace method failed, trying direct contract call:", marketplaceError);
+      // Add timeout to prevent hanging
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Balance request timeout after 10 seconds')), 10000)
+      );
 
-        // Fallback: Direct contract call
-        const usdcContract = new ethers.Contract(
-          '0x12D2162F47AAAe1B0591e898648605daA186D644',
-          ['function balanceOf(address) view returns (uint256)'],
-          marketplace.provider
-        );
+      const balanceWei = await Promise.race([
+        usdcContract.balanceOf(userAddress),
+        timeoutPromise
+      ]);
 
-        const balanceWei = await usdcContract.balanceOf(userAddress);
-        console.log("Direct contract balance wei:", balanceWei.toString());
+      console.log("Balance wei:", balanceWei.toString());
 
-        const balance = parseFloat(ethers.formatUnits(balanceWei, 6)); // USDC has 6 decimals
-        console.log("Direct contract formatted balance:", balance);
+      const balance = parseFloat(ethers.formatUnits(balanceWei, 6)); // USDC has 6 decimals
+      console.log("Formatted balance:", balance);
 
-        setCurrentBalance(balance);
-      }
+      setCurrentBalance(balance);
     } catch (error) {
       console.error("Failed to load USDC balance:", error);
       setTransaction({

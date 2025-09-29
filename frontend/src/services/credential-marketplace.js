@@ -148,6 +148,11 @@ class CredentialMarketplace {
   async createMarketWithLiquidity(credentialId, tokenAddress, tokenAmount, usdcAmount) {
     if (!this.signer) throw new Error('Signer required for this operation');
 
+    // Convert credentialId to bytes32 if it's a string
+    const credentialIdBytes32 = typeof credentialId === 'string' && !credentialId.startsWith('0x')
+      ? this.stringToBytes32(credentialId)
+      : credentialId;
+
     const token = new ethers.Contract(tokenAddress, contractABIs.CredentialToken, this.signer);
 
     // Approve tokens
@@ -157,7 +162,7 @@ class CredentialMarketplace {
 
     // Create pool
     const tx = await this.ammSigner.createPool(
-      credentialId,
+      credentialIdBytes32,
       tokenAddress,
       tokenAmount,
       usdcAmount
@@ -170,8 +175,13 @@ class CredentialMarketplace {
   async buyTokens(credentialId, usdcAmount, slippageTolerance = 0.005, deadline = null) {
     if (!this.signer) throw new Error('Signer required for this operation');
 
+    // Convert credentialId to bytes32 if it's a string
+    const credentialIdBytes32 = typeof credentialId === 'string' && !credentialId.startsWith('0x')
+      ? this.stringToBytes32(credentialId)
+      : credentialId;
+
     // Get quote
-    const quote = await this.getBuyQuote(credentialId, usdcAmount);
+    const quote = await this.getBuyQuote(credentialIdBytes32, usdcAmount);
     const minTokensOut = quote.tokensOut * BigInt(Math.floor((1 - slippageTolerance) * 10000)) / BigInt(10000);
 
     // Set deadline (1 hour from now if not provided)
@@ -182,7 +192,7 @@ class CredentialMarketplace {
 
     // Execute swap
     const tx = await this.ammSigner.swapUSDCForTokens(
-      credentialId,
+      credentialIdBytes32,
       usdcAmount,
       minTokensOut,
       txDeadline
@@ -194,12 +204,17 @@ class CredentialMarketplace {
   async sellTokens(credentialId, tokenAmount, slippageTolerance = 0.005, deadline = null) {
     if (!this.signer) throw new Error('Signer required for this operation');
 
+    // Convert credentialId to bytes32 if it's a string
+    const credentialIdBytes32 = typeof credentialId === 'string' && !credentialId.startsWith('0x')
+      ? this.stringToBytes32(credentialId)
+      : credentialId;
+
     // Get token address
-    const tokenAddress = await this.amm.getTokenByCredential(credentialId);
+    const tokenAddress = await this.amm.getTokenByCredential(credentialIdBytes32);
     const token = new ethers.Contract(tokenAddress, contractABIs.CredentialToken, this.signer);
 
     // Get quote
-    const quote = await this.getSellQuote(credentialId, tokenAmount);
+    const quote = await this.getSellQuote(credentialIdBytes32, tokenAmount);
     const minUsdcOut = quote.usdcOut * BigInt(Math.floor((1 - slippageTolerance) * 10000)) / BigInt(10000);
 
     // Set deadline
@@ -211,7 +226,7 @@ class CredentialMarketplace {
 
     // Execute swap
     const tx = await this.ammSigner.swapTokensForUSDC(
-      credentialId,
+      credentialIdBytes32,
       tokenAmount,
       minUsdcOut,
       txDeadline
@@ -222,12 +237,20 @@ class CredentialMarketplace {
 
   // Price and quote functions
   async getTokenPrice(credentialId) {
-    return await this.amm.getTokenPrice(credentialId);
+    // Convert credentialId to bytes32 if it's a string
+    const credentialIdBytes32 = typeof credentialId === 'string' && !credentialId.startsWith('0x')
+      ? this.stringToBytes32(credentialId)
+      : credentialId;
+    return await this.amm.getTokenPrice(credentialIdBytes32);
   }
 
   async getBuyQuote(credentialId, usdcAmount) {
+    // Convert credentialId to bytes32 if it's a string
+    const credentialIdBytes32 = typeof credentialId === 'string' && !credentialId.startsWith('0x')
+      ? this.stringToBytes32(credentialId)
+      : credentialId;
     const [tokensOut, fee] = await this.amm.getAmountOut(
-      credentialId,
+      credentialIdBytes32,
       this.contracts.USDC,
       usdcAmount
     );
@@ -235,9 +258,13 @@ class CredentialMarketplace {
   }
 
   async getSellQuote(credentialId, tokenAmount) {
-    const tokenAddress = await this.amm.getTokenByCredential(credentialId);
+    // Convert credentialId to bytes32 if it's a string
+    const credentialIdBytes32 = typeof credentialId === 'string' && !credentialId.startsWith('0x')
+      ? this.stringToBytes32(credentialId)
+      : credentialId;
+    const tokenAddress = await this.amm.getTokenByCredential(credentialIdBytes32);
     const [usdcOut, fee] = await this.amm.getAmountOut(
-      credentialId,
+      credentialIdBytes32,
       tokenAddress,
       tokenAmount
     );
@@ -246,7 +273,11 @@ class CredentialMarketplace {
 
   // Pool information
   async getPoolInfo(credentialId) {
-    const pool = await this.amm.getPool(credentialId);
+    // Convert credentialId to bytes32 if it's a string
+    const credentialIdBytes32 = typeof credentialId === 'string' && !credentialId.startsWith('0x')
+      ? this.stringToBytes32(credentialId)
+      : credentialId;
+    const pool = await this.amm.getPool(credentialIdBytes32);
     return {
       tokenAddress: pool.credentialToken,
       tokenReserves: pool.tokenReserves,
@@ -275,7 +306,12 @@ class CredentialMarketplace {
   async addLiquidity(credentialId, tokenAmount, usdcAmount, slippageTolerance = 0.005, deadline = null) {
     if (!this.signer) throw new Error('Signer required for this operation');
 
-    const tokenAddress = await this.amm.getTokenByCredential(credentialId);
+    // Convert credentialId to bytes32 if it's a string
+    const credentialIdBytes32 = typeof credentialId === 'string' && !credentialId.startsWith('0x')
+      ? this.stringToBytes32(credentialId)
+      : credentialId;
+
+    const tokenAddress = await this.amm.getTokenByCredential(credentialIdBytes32);
     const token = new ethers.Contract(tokenAddress, contractABIs.CredentialToken, this.signer);
 
     // Calculate minimum liquidity
@@ -291,7 +327,7 @@ class CredentialMarketplace {
 
     // Add liquidity
     const tx = await this.ammSigner.addLiquidity(
-      credentialId,
+      credentialIdBytes32,
       tokenAmount,
       usdcAmount,
       minLiquidity,
@@ -303,17 +339,29 @@ class CredentialMarketplace {
 
   // Revenue and rewards
   async getPendingRewards(credentialId, userAddress) {
-    return await this.feeCollector.getPendingRewards(credentialId, userAddress);
+    // Convert credentialId to bytes32 if it's a string
+    const credentialIdBytes32 = typeof credentialId === 'string' && !credentialId.startsWith('0x')
+      ? this.stringToBytes32(credentialId)
+      : credentialId;
+    return await this.feeCollector.getPendingRewards(credentialIdBytes32, userAddress);
   }
 
   async claimRewards(credentialId) {
     if (!this.signer) throw new Error('Signer required for this operation');
-    const tx = await this.feeCollectorSigner.claimRewards(credentialId);
+    // Convert credentialId to bytes32 if it's a string
+    const credentialIdBytes32 = typeof credentialId === 'string' && !credentialId.startsWith('0x')
+      ? this.stringToBytes32(credentialId)
+      : credentialId;
+    const tx = await this.feeCollectorSigner.claimRewards(credentialIdBytes32);
     return await tx.wait();
   }
 
   async getRevenuePool(credentialId) {
-    return await this.feeCollector.getRevenuePool(credentialId);
+    // Convert credentialId to bytes32 if it's a string
+    const credentialIdBytes32 = typeof credentialId === 'string' && !credentialId.startsWith('0x')
+      ? this.stringToBytes32(credentialId)
+      : credentialId;
+    return await this.feeCollector.getRevenuePool(credentialIdBytes32);
   }
 
   // Event listeners

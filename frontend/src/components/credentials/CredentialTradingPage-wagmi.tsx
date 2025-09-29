@@ -309,7 +309,7 @@ const CredentialTradingPage: React.FC = () => {
             <div className="flex items-center gap-3">
               <h1 className="text-3xl font-bold text-foreground">{credential.name}</h1>
               <Badge variant="outline">{credential.type}</Badge>
-              <Badge className="bg-green-100 text-green-800 border-green-200">
+              <Badge variant="secondary">
                 {credential.symbol}
               </Badge>
             </div>

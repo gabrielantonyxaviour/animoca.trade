@@ -1,0 +1,39 @@
+{
+  "name": "air-credential-backend",
+  "version": "1.0.0",
+  "description": "Simple Backend API for AIR Credential Token Ecosystem",
+  "main": "dist/server.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx watch src/server.ts",
+    "start": "node dist/server.js",
+    "lint": "eslint src/**/*.ts"
+  },
+  "dependencies": {
+    "@mocanetwork/airkit": "^1.6.0-beta.1",
+    "express": "^4.21.2",
+    "cors": "^2.8.5",
+    "helmet": "^8.0.0",
+    "express-rate-limit": "^7.5.0",
+    "joi": "^17.13.3",
+    "pg": "^8.13.1",
+    "ethers": "^6.15.0",
+    "viem": "^2.31.3",
+    "dotenv": "^16.4.7"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/cors": "^2.8.17",
+    "@types/node": "^24.5.2",
+    "@types/pg": "^8.11.10",
+    "@typescript-eslint/eslint-plugin": "^8.15.0",
+    "@typescript-eslint/parser": "^8.15.0",
+    "eslint": "^9.25.0",
+    "typescript": "^5.8.3",
+    "tsx": "^4.19.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

@@ -1,62 +1,55 @@
-# Token Economics & Mechanics
+# Token Economics & Mechanics - Fee-Based Revenue Model
 
 ## Core Economic Model
 
-### Token Generation Mechanics
+### Verification Fee Revenue System
 
-#### Emission Rate Formula
+#### Fee Collection Formula
 ```
-Daily Emission = Base Rate × Credential Multiplier × Time Decay × Anti-Inflation Factor
+Token Holder Revenue = (User's Token Share / Total Token Supply) × Total Verification Fees
 
 Where:
-- Base Rate: 10 tokens/day (standard rate)
-- Credential Multiplier: 1x - 5x (based on credential type/rarity)
-- Time Decay: Reduces by 1% monthly to prevent infinite inflation
-- Anti-Inflation Factor: Market-based adjustment (0.8x - 1.2x)
+- Verification Fees: USDC collected from credential minting, verification, high-value charges
+- Token Share: Number of tokens held by user
+- Total Supply: Total circulating token supply
+- Distribution: Real-time or batched distributions
 ```
 
-#### Credential Type Multipliers
+#### Verification Fee Structure
 ```
-Education Credentials:
-- High School Diploma: 1.0x
-- Bachelor's Degree: 1.5x
-- Master's Degree: 2.0x
-- PhD/Doctorate: 3.0x
+Credential Minting Fees (in USDC):
+- Basic Credentials: $1-5 per mint
+- Professional Certifications: $5-25 per mint
+- Advanced/Expert Credentials: $25-100 per mint
+- Rare/Unique Credentials: $100-500 per mint
 
-Professional Certifications:
-- Basic Certification: 1.2x
-- Advanced Certification: 1.8x
-- Expert Certification: 2.5x
-- Industry Leadership: 4.0x
+On-Chain Verification Fees:
+- Standard Verification: $0.50-2 per verification
+- High-Value Verification: $2-10 per verification
+- Enterprise Verification: $10-50 per verification
 
-Skills & Achievements:
-- Basic Skill Badge: 0.8x
-- Intermediate Skill: 1.2x
-- Advanced Skill: 1.8x
-- Master Level: 2.5x
-
-Rare/Unique Credentials:
-- Competition Winners: 3.5x
-- Industry Awards: 4.5x
-- Patent Holders: 5.0x
+High-Value Credential Services:
+- Background Check Integration: $25-100
+- Certificate of Authenticity: $50-200
+- Legal Documentation: $100-500
 ```
 
-#### Supply Control Mechanisms
+#### Revenue Distribution Mechanisms
 ```
-Maximum Supply Caps:
-- Per Token: 1,000,000 - 10,000,000 tokens (set at creation)
-- Global Cap: No global limit (market-determined)
+Fee Pool Distribution:
+- Token Holders: 80% of verification fees
+- Platform Treasury: 15% of verification fees
+- Development Fund: 5% of verification fees
 
-Decay Schedule:
-- Month 1-12: Full emission rate
-- Month 13-24: 99% of previous rate
-- Month 25-36: 98% of previous rate
-- Continues decreasing by 1% monthly
+Distribution Schedule:
+- Real-time: Small fees (<$10) distributed immediately
+- Batched: Larger fees batched daily for gas efficiency
+- Minimum Claim: $1 USDC minimum to claim accumulated fees
 
-Burning Mechanisms:
-- Transaction fees: 0.01% of trading volume burned
-- Inactive credentials: Tokens stop generating after 90 days inactivity
-- Voluntary burning: Token holders can burn tokens to increase scarcity
+Token Supply Management:
+- Fixed Supply: No new token minting after initial creation
+- Market-Driven: Supply determined by initial liquidity provision
+- Buyback Program: Platform uses treasury to buyback tokens during high revenue periods
 ```
 
 ### AMM Pool Economics
@@ -190,53 +183,54 @@ Sustained Stability Bonus:
 ##### Credential Holders
 ```
 Revenue Streams:
-1. Passive Token Generation: 10-50 tokens/day (based on multipliers)
-2. Token Appreciation: Benefit from reputation growth
-3. Liquidity Provision: Optional LP fees if providing liquidity
+1. Verification Fee Revenue: USDC from actual credential usage
+2. Token Appreciation: Benefit from increased demand
+3. Liquidity Provision: Optional USDC LP fees
 
-Expected Returns:
-- Conservative: $5-20/month per credential
-- Moderate: $20-100/month per credential
-- High-value credentials: $100-500/month per credential
+Expected Returns (based on verification activity):
+- Low activity credentials: $2-10/month in USDC
+- Moderate activity credentials: $10-50/month in USDC
+- High-demand credentials: $50-300/month in USDC
 
 Risks:
-- Credential revocation/expiration stops generation
-- Token price decline reduces value
-- Market manipulation attempts
+- Low verification demand reduces revenue
+- Credential revocation stops fee generation
+- Market competition from similar credentials
 ```
 
 ##### Token Creators
 ```
 Investment Requirements:
-- Initial liquidity: $100-$2,000 minimum
+- Initial USDC liquidity: $100-$2,000 minimum
 - Gas costs: $50-200 for deployment
 - Time investment: Setup and promotion
 
 Revenue Opportunities:
-1. Token appreciation if reputation grows
-2. Creator fee potential (optional 0.1% on trades)
+1. USDC verification fee revenue as token holder
+2. Token appreciation if credential demand grows
 3. First-mover advantage in credential category
+4. Enhanced reputation value from market validation
 
 Risks:
-- Impermanent loss from LP position
-- Low adoption/trading volume
-- Reputation damage if credential questioned
+- Impermanent loss from USDC LP position
+- Low verification activity/fee generation
+- Market undervaluation of credential
 ```
 
 ##### Liquidity Providers
 ```
 Revenue Model:
-- Trading fees: 0.25% of all volume
-- Potential token appreciation
-- LP incentive programs (planned)
+- USDC trading fees: 0.25% of all volume
+- Potential credential token appreciation
+- USDC fee collection (stable value)
 
 Expected Returns:
-- Low volume pools: 5-15% APR
-- Medium volume pools: 15-30% APR
-- High volume pools: 30-60% APR
+- Low volume pools: 5-15% APR in USDC
+- Medium volume pools: 15-30% APR in USDC
+- High volume pools: 30-60% APR in USDC
 
 Risks:
-- Impermanent loss from price divergence
+- Impermanent loss from token-USDC price divergence
 - Smart contract risks
 - Pool abandonment risk
 ```
@@ -264,15 +258,15 @@ Risks:
 ##### Protocol
 ```
 Revenue Sources:
-1. Trading fees: 0.05% of all volume
-2. Token creation fees: $10-50 per token
-3. Premium features: Analytics, alerts, etc.
+1. USDC trading fees: 0.05% of all volume
+2. Verification fee share: 15% of all verification fees
+3. Premium features: Analytics, alerts, enterprise tools
 
 Sustainability Model:
-Target: $100K+ monthly volume for sustainability
-- $100K volume × 0.05% = $50/month protocol fees
-- Need: $2M+ monthly volume for meaningful revenue
-- Growth target: $10M+ monthly volume within 12 months
+Target: $50K+ monthly verification fees for sustainability
+- $50K verification fees × 15% = $7,500/month base revenue
+- Trading fees: Additional $2-5K/month from volume
+- Growth target: $200K+ monthly verification fees within 12 months
 
 Use of Funds:
 - Development: 40%

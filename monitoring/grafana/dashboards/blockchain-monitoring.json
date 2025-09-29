@@ -1,0 +1,142 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "Blockchain Monitoring Dashboard",
+    "tags": ["credential-platform", "blockchain", "moca"],
+    "timezone": "browser",
+    "panels": [
+      {
+        "title": "Tokens Created (Total)",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "blockchain_tokens_created_total",
+            "legendFormat": "Total Tokens"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short"
+          }
+        },
+        "gridPos": {"h": 8, "w": 6, "x": 0, "y": 0}
+      },
+      {
+        "title": "Active Trading Pools",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "blockchain_active_pools_total",
+            "legendFormat": "Active Pools"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 6, "x": 6, "y": 0}
+      },
+      {
+        "title": "Trading Volume (24h)",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "increase(blockchain_trading_volume_eth_total[24h])",
+            "legendFormat": "Volume (ETH)"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "decimals": 4
+          }
+        },
+        "gridPos": {"h": 8, "w": 6, "x": 12, "y": 0}
+      },
+      {
+        "title": "Average Gas Price",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "blockchain_average_gas_price",
+            "legendFormat": "Gas Price (Gwei)"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short"
+          }
+        },
+        "gridPos": {"h": 8, "w": 6, "x": 18, "y": 0}
+      },
+      {
+        "title": "Token Creation Rate",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "rate(blockchain_tokens_created_total[5m]) * 60",
+            "legendFormat": "Tokens/minute"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short"
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8}
+      },
+      {
+        "title": "Trading Activity",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "rate(blockchain_trades_total[5m]) * 60",
+            "legendFormat": "Trades/minute"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8}
+      },
+      {
+        "title": "Contract Interaction Success Rate",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "rate(blockchain_contract_calls_success_total[5m]) / rate(blockchain_contract_calls_total[5m]) * 100",
+            "legendFormat": "Success Rate %"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 0,
+            "max": 100
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16}
+      },
+      {
+        "title": "Gas Usage by Contract",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "rate(blockchain_gas_used_total[5m])",
+            "legendFormat": "{{contract}} Gas/sec"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16}
+      },
+      {
+        "title": "Top Traded Tokens",
+        "type": "table",
+        "targets": [
+          {
+            "expr": "topk(10, increase(blockchain_token_trading_volume_total[24h]))",
+            "legendFormat": "{{token_symbol}}"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 24}
+      }
+    ],
+    "time": {
+      "from": "now-6h",
+      "to": "now"
+    },
+    "refresh": "1m"
+  }
+}

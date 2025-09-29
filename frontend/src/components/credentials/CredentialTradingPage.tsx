@@ -1,0 +1,516 @@
+import { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { AirService } from "@mocanetwork/airkit";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ArrowLeft, TrendingUp, TrendingDown, DollarSign, CheckCircle, Zap } from "lucide-react";
+import PriceCharts from "@/components/analytics/PriceCharts";
+import { useRealTimePrices } from "@/hooks/useRealTimePrices";
+
+interface CredentialTradingPageProps {
+  airService: AirService | null;
+  isLoggedIn: boolean;
+  userAddress: string | null;
+}
+
+interface CredentialStats {
+  totalIssuances: number;
+  totalVerifications: number;
+  feesCollected24h: number;
+  feesCollectedAllTime: number;
+  activeHolders: number;
+  circulatingSupply: number;
+  lastIssuanceDate: string;
+  lastVerificationDate: string;
+}
+
+interface TradeFormData {
+  action: 'buy' | 'sell';
+  amount: string;
+  slippage: number;
+}
+
+const CredentialTradingPage: React.FC<CredentialTradingPageProps> = ({
+  airService: _airService,
+  isLoggedIn,
+  userAddress,
+}) => {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { prices, updatePrice: _updatePrice } = useRealTimePrices();
+
+  const [credential, setCredential] = useState<any>(null);
+  const [stats, setStats] = useState<CredentialStats | null>(null);
+  const [userBalance, setUserBalance] = useState(0);
+  const [usdcBalance, setUsdcBalance] = useState(1000); // Mock USDC balance
+  const [tradeForm, setTradeForm] = useState<TradeFormData>({
+    action: 'buy',
+    amount: '',
+    slippage: 1.0,
+  });
+  const [isTrading, setIsTrading] = useState(false);
+
+  // Mock credential data based on ID
+  const mockCredentials: { [key: string]: any } = {
+    'edu-001': {
+      id: 'edu-001',
+      name: 'Computer Science Degree',
+      issuer: 'MIT',
+      type: 'Education',
+      symbol: 'CSED',
+      tokenAddress: '0x123...',
+      description: 'Bachelor\'s degree in Computer Science from MIT',
+      verificationStatus: 'verified',
+      hasToken: true,
+    },
+    'prof-002': {
+      id: 'prof-002',
+      name: 'Senior Developer Certification',
+      issuer: 'TechCorp',
+      type: 'Professional',
+      symbol: 'SDC',
+      tokenAddress: '0x456...',
+      description: 'Senior-level software development certification',
+      verificationStatus: 'verified',
+      hasToken: true,
+    },
+    'skill-004': {
+      id: 'skill-004',
+      name: 'Blockchain Expert Badge',
+      issuer: 'CryptoAcademy',
+      type: 'Skill',
+      symbol: 'BEB',
+      tokenAddress: '0xabc...',
+      description: 'Advanced blockchain development skills certification',
+      verificationStatus: 'verified',
+      hasToken: true,
+    },
+  };
+
+  // Load data when component mounts
+  useEffect(() => {
+    if (id && mockCredentials[id]) {
+      setCredential(mockCredentials[id]);
+
+      // Load stats from localStorage or generate mock data
+      const statsKey = `credential_stats_${id}`;
+      const storedStats = localStorage.getItem(statsKey);
+
+      if (storedStats) {
+        setStats(JSON.parse(storedStats));
+      } else {
+        // Generate initial stats and store them
+        const initialStats: CredentialStats = {
+          totalIssuances: Math.floor(Math.random() * 500) + 100,
+          totalVerifications: Math.floor(Math.random() * 2000) + 500,
+          feesCollected24h: Math.random() * 100 + 50,
+          feesCollectedAllTime: Math.random() * 5000 + 1000,
+          activeHolders: Math.floor(Math.random() * 200) + 50,
+          circulatingSupply: Math.floor(Math.random() * 50000) + 10000,
+          lastIssuanceDate: new Date(Date.now() - Math.random() * 86400000).toISOString(),
+          lastVerificationDate: new Date(Date.now() - Math.random() * 3600000).toISOString(),
+        };
+        setStats(initialStats);
+        localStorage.setItem(statsKey, JSON.stringify(initialStats));
+      }
+
+      // Mock user balance
+      setUserBalance(Math.floor(Math.random() * 1000));
+    }
+  }, [id]);
+
+  // Load USDC balance from localStorage
+  useEffect(() => {
+    if (isLoggedIn && userAddress) {
+      const storedBalance = localStorage.getItem(`usdc_balance_${userAddress}`);
+      setUsdcBalance(storedBalance ? parseInt(storedBalance) : 0);
+    }
+  }, [isLoggedIn, userAddress]);
+
+  const currentPrice = credential?.tokenAddress ? prices.get(credential.tokenAddress)?.price || 0 : 0;
+  const priceChange24h = credential?.tokenAddress ? prices.get(credential.tokenAddress)?.priceChange24h || 0 : 0;
+
+  const calculateTradeAmount = () => {
+    const amount = parseFloat(tradeForm.amount) || 0;
+    if (tradeForm.action === 'buy') {
+      return amount / currentPrice; // USDC -> Tokens
+    } else {
+      return amount * currentPrice; // Tokens -> USDC
+    }
+  };
+
+  const calculateTradeFee = () => {
+    const tradeAmount = calculateTradeAmount();
+    return tradeAmount * 0.003; // 0.3% fee
+  };
+
+  const handleTrade = async () => {
+    if (!isLoggedIn || !credential || !tradeForm.amount) return;
+
+    setIsTrading(true);
+    try {
+      // Simulate trade delay
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      const amount = parseFloat(tradeForm.amount);
+      const fee = calculateTradeFee();
+
+      if (tradeForm.action === 'buy') {
+        // Buy tokens with USDC
+        const totalCost = amount + (amount * 0.003); // Include fee
+        if (totalCost > usdcBalance) {
+          throw new Error('Insufficient USDC balance');
+        }
+
+        const newUsdcBalance = usdcBalance - totalCost;
+        const tokensReceived = amount / currentPrice;
+
+        setUsdcBalance(newUsdcBalance);
+        setUserBalance(userBalance + tokensReceived);
+        localStorage.setItem(`usdc_balance_${userAddress}`, newUsdcBalance.toString());
+
+        // Update stats
+        if (stats) {
+          const newStats = {
+            ...stats,
+            feesCollected24h: stats.feesCollected24h + fee,
+            feesCollectedAllTime: stats.feesCollectedAllTime + fee,
+          };
+          setStats(newStats);
+          localStorage.setItem(`credential_stats_${id}`, JSON.stringify(newStats));
+        }
+      } else {
+        // Sell tokens for USDC
+        if (amount > userBalance) {
+          throw new Error('Insufficient token balance');
+        }
+
+        const usdcReceived = (amount * currentPrice) * (1 - 0.003); // Subtract fee
+
+        setUserBalance(userBalance - amount);
+        setUsdcBalance(usdcBalance + usdcReceived);
+        localStorage.setItem(`usdc_balance_${userAddress}`, (usdcBalance + usdcReceived).toString());
+      }
+
+      setTradeForm({ ...tradeForm, amount: '' });
+    } catch (error) {
+      console.error('Trade failed:', error);
+      alert(error instanceof Error ? error.message : 'Trade failed');
+    } finally {
+      setIsTrading(false);
+    }
+  };
+
+  if (!credential) {
+    return (
+      <div className="flex-1 p-4 lg:p-8">
+        <div className="max-w-7xl mx-auto">
+          <Card>
+            <CardContent className="p-8 text-center">
+              <h2 className="text-2xl font-bold mb-4">Credential Not Found</h2>
+              <p className="text-muted-foreground mb-6">
+                The credential you're looking for doesn't exist or hasn't been tokenized yet.
+              </p>
+              <Button onClick={() => navigate('/creds')}>
+                Back to Markets
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isLoggedIn) {
+    return (
+      <div className="flex-1 p-4 lg:p-8">
+        <div className="max-w-7xl mx-auto">
+          <Card>
+            <CardContent className="p-8 text-center">
+              <h2 className="text-2xl font-bold mb-4">Connect Your Wallet</h2>
+              <p className="text-muted-foreground mb-6">
+                Please connect your wallet to view and trade this credential token.
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex-1 p-4 lg:p-8">
+      <div className="max-w-7xl mx-auto space-y-6">
+        {/* Header */}
+        <div className="flex items-center gap-4">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate('/creds')}
+            className="flex items-center gap-2"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to Markets
+          </Button>
+          <div className="flex-1">
+            <div className="flex items-center gap-3">
+              <h1 className="text-3xl font-bold text-foreground">{credential.name}</h1>
+              <Badge variant="outline">{credential.type}</Badge>
+              <Badge className="bg-green-100 text-green-800 border-green-200">
+                {credential.symbol}
+              </Badge>
+            </div>
+            <p className="text-muted-foreground mt-1">
+              Issued by {credential.issuer} • {credential.description}
+            </p>
+          </div>
+        </div>
+
+        {/* Price Info */}
+        <Card>
+          <CardContent className="p-6">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+              <div>
+                <div className="text-sm text-muted-foreground">Current Price</div>
+                <div className="text-2xl font-bold">{currentPrice.toFixed(4)} USDC</div>
+                <div className={`flex items-center gap-1 text-sm ${priceChange24h >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  {priceChange24h >= 0 ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
+                  {Math.abs(priceChange24h).toFixed(2)}% (24h)
+                </div>
+              </div>
+              <div>
+                <div className="text-sm text-muted-foreground">Your Balance</div>
+                <div className="text-2xl font-bold">{userBalance.toFixed(2)} {credential.symbol}</div>
+                <div className="text-sm text-muted-foreground">
+                  ≈ {(userBalance * currentPrice).toFixed(2)} USDC
+                </div>
+              </div>
+              <div>
+                <div className="text-sm text-muted-foreground">Market Cap</div>
+                <div className="text-2xl font-bold">
+                  {stats ? (stats.circulatingSupply * currentPrice / 1000).toFixed(1) : '0'}K USDC
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  {stats?.circulatingSupply.toLocaleString()} tokens
+                </div>
+              </div>
+              <div>
+                <div className="text-sm text-muted-foreground">Active Holders</div>
+                <div className="text-2xl font-bold">{stats?.activeHolders || 0}</div>
+                <div className="text-sm text-muted-foreground">Token holders</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Chart and Trading */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Price Chart */}
+            <PriceCharts
+              tokenAddress={credential.tokenAddress}
+              tokenSymbol={credential.symbol}
+              oracleAddress="0x789..."
+            />
+
+            {/* Trading Interface */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Trade {credential.symbol}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Tabs value={tradeForm.action} onValueChange={(value) => setTradeForm({...tradeForm, action: value as 'buy' | 'sell'})}>
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="buy">Buy</TabsTrigger>
+                    <TabsTrigger value="sell">Sell</TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent value="buy" className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="buy-amount">Amount (USDC)</Label>
+                      <Input
+                        id="buy-amount"
+                        type="number"
+                        placeholder="0.00"
+                        value={tradeForm.amount}
+                        onChange={(e) => setTradeForm({...tradeForm, amount: e.target.value})}
+                      />
+                      <div className="text-sm text-muted-foreground">
+                        Balance: {usdcBalance.toFixed(2)} USDC
+                      </div>
+                    </div>
+                    {tradeForm.amount && (
+                      <div className="p-3 bg-muted rounded-lg space-y-1 text-sm">
+                        <div className="flex justify-between">
+                          <span>You'll receive:</span>
+                          <span>{calculateTradeAmount().toFixed(4)} {credential.symbol}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Trading fee (0.3%):</span>
+                          <span>{calculateTradeFee().toFixed(4)} {credential.symbol}</span>
+                        </div>
+                      </div>
+                    )}
+                  </TabsContent>
+
+                  <TabsContent value="sell" className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="sell-amount">Amount ({credential.symbol})</Label>
+                      <Input
+                        id="sell-amount"
+                        type="number"
+                        placeholder="0.00"
+                        value={tradeForm.amount}
+                        onChange={(e) => setTradeForm({...tradeForm, amount: e.target.value})}
+                      />
+                      <div className="text-sm text-muted-foreground">
+                        Balance: {userBalance.toFixed(2)} {credential.symbol}
+                      </div>
+                    </div>
+                    {tradeForm.amount && (
+                      <div className="p-3 bg-muted rounded-lg space-y-1 text-sm">
+                        <div className="flex justify-between">
+                          <span>You'll receive:</span>
+                          <span>{(calculateTradeAmount() * 0.997).toFixed(4)} USDC</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Trading fee (0.3%):</span>
+                          <span>{(calculateTradeAmount() * 0.003).toFixed(4)} USDC</span>
+                        </div>
+                      </div>
+                    )}
+                  </TabsContent>
+                </Tabs>
+
+                <Button
+                  onClick={handleTrade}
+                  disabled={isTrading || !tradeForm.amount}
+                  className="w-full mt-4"
+                >
+                  {isTrading ? 'Processing...' : `${tradeForm.action === 'buy' ? 'Buy' : 'Sell'} ${credential.symbol}`}
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Stats Sidebar */}
+          <div className="space-y-6">
+            {/* Verification Activity */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <CheckCircle className="w-5 h-5" />
+                  Verification Activity
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Total Issuances</span>
+                    <span className="font-semibold">{stats?.totalIssuances.toLocaleString()}</span>
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    Last: {stats ? new Date(stats.lastIssuanceDate).toLocaleDateString() : 'N/A'}
+                  </div>
+                </div>
+                <div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Total Verifications</span>
+                    <span className="font-semibold">{stats?.totalVerifications.toLocaleString()}</span>
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    Last: {stats ? new Date(stats.lastVerificationDate).toLocaleDateString() : 'N/A'}
+                  </div>
+                </div>
+                <div className="pt-2 border-t">
+                  <div className="text-sm text-muted-foreground">Verification Rate</div>
+                  <div className="font-semibold">
+                    {stats ? ((stats.totalVerifications / stats.totalIssuances) * 100).toFixed(1) : 0}%
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Fee Collection */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <DollarSign className="w-5 h-5" />
+                  Fee Collection
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <div className="text-sm text-muted-foreground">Last 24 Hours</div>
+                  <div className="text-2xl font-bold">{stats?.feesCollected24h.toFixed(2)} USDC</div>
+                  <div className="flex items-center gap-1 text-sm text-green-600">
+                    <TrendingUp className="w-3 h-3" />
+                    +12.5% vs yesterday
+                  </div>
+                </div>
+                <div>
+                  <div className="text-sm text-muted-foreground">All Time</div>
+                  <div className="text-2xl font-bold">{stats?.feesCollectedAllTime.toFixed(2)} USDC</div>
+                  <div className="text-xs text-muted-foreground">
+                    Distributed to token holders
+                  </div>
+                </div>
+                <div className="pt-2 border-t">
+                  <div className="text-sm text-muted-foreground">Your Share (Est.)</div>
+                  <div className="font-semibold">
+                    {stats && userBalance > 0
+                      ? ((userBalance / stats.circulatingSupply) * stats.feesCollected24h).toFixed(4)
+                      : '0.0000'
+                    } USDC/day
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Quick Actions */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Zap className="w-5 h-5" />
+                  Quick Actions
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => navigate('/issue')}
+                >
+                  Issue New Credential
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => navigate('/verify')}
+                >
+                  Verify Credential
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => setTradeForm({...tradeForm, amount: (usdcBalance * 0.1).toString(), action: 'buy'})}
+                >
+                  Buy 10% of Balance
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default CredentialTradingPage;

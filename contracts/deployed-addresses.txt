@@ -1,0 +1,33 @@
+AIR Credential Token Ecosystem - USDC-Based System
+Moca Devnet (Chain ID: 5151)
+Deployed at: 2025-09-29
+Explorer: https://devnet-scan.mocachain.org
+
+NEW USDC-BASED SYSTEM CONTRACT ADDRESSES:
+=========================================
+MockUSDC: 0x12D2162F47AAAe1B0591e898648605daA186D644
+CredentialTokenFactory: 0xa6a621e9C92fb8DFC963d2C20e8C5CB4C5178cBb
+FeeCollector: 0x62A3E29afc75a91f40599f4f7314fF46eBa9bF93
+CredentialAMM: 0x60DdECC1f8Fa85b531D4891Ac1901Ab263066A67
+
+Admin/Deployer: 0x6B9ad963c764a06A7ef8ff96D38D0cB86575eC00
+
+Environment Variables for Frontend Integration:
+==============================================
+export USDC_ADDRESS=0x12D2162F47AAAe1B0591e898648605daA186D644
+export FACTORY_ADDRESS=0xa6a621e9C92fb8DFC963d2C20e8C5CB4C5178cBb
+export FEE_COLLECTOR_ADDRESS=0x62A3E29afc75a91f40599f4f7314fF46eBa9bF93
+export AMM_ADDRESS=0x60DdECC1f8Fa85b531D4891Ac1901Ab263066A67
+
+System Features:
+===============
+✅ USDC-based fee collection system
+✅ Revenue distribution to token holders
+✅ Automated Market Maker (AMM) with constant product formula
+✅ Slippage protection and deadline enforcement
+✅ Multiple fee types (minting, verification, high-value)
+✅ Liquidity provision and trading functionality
+✅ Comprehensive test coverage (17 tests passing)
+
+Deployment Status: SUCCESS
+All contracts deployed and configured successfully.

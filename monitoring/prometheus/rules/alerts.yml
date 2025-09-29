@@ -1,0 +1,96 @@
+groups:
+  - name: application.rules
+    rules:
+      # High error rate
+      - alert: HighErrorRate
+        expr: rate(nginx_http_requests_total{status=~"5.."}[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is {{ $value }} errors per second"
+
+      # High response time
+      - alert: HighResponseTime
+        expr: nginx_http_request_duration_seconds{quantile="0.95"} > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High response time detected"
+          description: "95th percentile response time is {{ $value }}s"
+
+      # Service down
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service {{ $labels.instance }} is down"
+          description: "Service {{ $labels.instance }} has been down for more than 1 minute"
+
+  - name: infrastructure.rules
+    rules:
+      # High CPU usage
+      - alert: HighCPUUsage
+        expr: 100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage on {{ $labels.instance }}"
+          description: "CPU usage is above 80% for 5 minutes"
+
+      # High memory usage
+      - alert: HighMemoryUsage
+        expr: (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage on {{ $labels.instance }}"
+          description: "Memory usage is above 85% for 5 minutes"
+
+      # Low disk space
+      - alert: LowDiskSpace
+        expr: (node_filesystem_size_bytes - node_filesystem_free_bytes) / node_filesystem_size_bytes * 100 > 90
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Low disk space on {{ $labels.instance }}"
+          description: "Disk usage is above 90% on {{ $labels.mountpoint }}"
+
+  - name: blockchain.rules
+    rules:
+      # High gas costs
+      - alert: HighGasCosts
+        expr: blockchain_average_gas_price > 100
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High gas costs detected"
+          description: "Average gas price is {{ $value }} gwei"
+
+      # Contract interaction failures
+      - alert: ContractInteractionFailures
+        expr: rate(blockchain_contract_call_failures_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High contract interaction failure rate"
+          description: "Contract interaction failure rate is {{ $value }} per second"
+
+      # Token creation rate drop
+      - alert: TokenCreationRateDrop
+        expr: rate(blockchain_tokens_created_total[10m]) < 0.01
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Token creation rate has dropped significantly"
+          description: "Token creation rate is {{ $value }} per second"

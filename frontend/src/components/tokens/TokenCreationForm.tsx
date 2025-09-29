@@ -1,17 +1,30 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { AirService } from "@mocanetwork/airkit";
+import { ethers } from "ethers";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useTokenFactory } from "@/hooks/contracts/useTokenContracts";
-import type { CreateTokenParams } from "@/types/contracts";
+import { initializeMarketplace, getMarketplace } from "@/services/credential-marketplace";
+import { TRADING_CREDENTIALS, type TradingPlatform, type CredentialStatus } from "@/config/tradingCredentials";
 
 interface TokenCreationFormProps {
   airService: AirService | null;
   isLoggedIn: boolean;
   userAddress: string | null;
+}
+
+interface CreateTokenParams {
+  credentialId: string;
+  name: string;
+  symbol: string;
+  emissionRate: number;
+  maxSupply: number;
+  initialLiquidity: {
+    tokenAmount: number;
+    usdcAmount: number; // Changed from usdcAmount to usdcAmount
+  };
 }
 
 const TokenCreationForm: React.FC<TokenCreationFormProps> = ({
@@ -20,11 +33,19 @@ const TokenCreationForm: React.FC<TokenCreationFormProps> = ({
   userAddress,
 }) => {
   const navigate = useNavigate();
-  const { createToken, isLoading, error } = useTokenFactory(userAddress);
+  const [searchParams] = useSearchParams();
+
+  // Marketplace service states
+  const [marketplace, setMarketplace] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const [step, setStep] = useState(1);
   const [selectedCredential, setSelectedCredential] = useState<any>(null);
   const [userCredentials, setUserCredentials] = useState<any[]>([]);
+  const [credentialStatuses, setCredentialStatuses] = useState<CredentialStatus[]>([]);
+  const [issuingCredentials, setIssuingCredentials] = useState<Set<TradingPlatform>>(new Set());
+  const [verifyingCredentials, setVerifyingCredentials] = useState<Set<TradingPlatform>>(new Set());
   const [formData, setFormData] = useState<CreateTokenParams>({
     credentialId: "",
     name: "",
@@ -33,12 +54,34 @@ const TokenCreationForm: React.FC<TokenCreationFormProps> = ({
     maxSupply: 1000000,
     initialLiquidity: {
       tokenAmount: 1000,
-      ethAmount: 0.1,
+      usdcAmount: 100, // Changed to USDC amount (100 USDC for initial liquidity)
     },
   });
 
   // Validation states
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+
+  // Initialize marketplace service when wallet is connected
+  useEffect(() => {
+    const initMarketplace = async () => {
+      if (!airService || !isLoggedIn || !userAddress) return;
+
+      try {
+        // Get provider from AirService
+        const provider = new ethers.BrowserProvider(airService.provider);
+        const signer = await provider.getSigner();
+
+        // Initialize marketplace with Moca Devnet (chainId: 5151)
+        const marketplaceInstance = initializeMarketplace(provider, signer, 5151);
+        setMarketplace(marketplaceInstance);
+      } catch (err) {
+        console.error("Failed to initialize marketplace:", err);
+        setError("Failed to connect to marketplace");
+      }
+    };
+
+    initMarketplace();
+  }, [airService, isLoggedIn, userAddress]);
 
   // Fetch user credentials from AIR SDK
   useEffect(() => {
@@ -46,25 +89,50 @@ const TokenCreationForm: React.FC<TokenCreationFormProps> = ({
       if (!airService || !isLoggedIn) return;
 
       try {
-        // This would be the actual AIR SDK method to get user's credentials
-        // For now, we'll use placeholder data
-        const credentials = [
+        // Convert trading credentials to match the expected interface
+        const credentials = TRADING_CREDENTIALS.map((tradingCred, _index) => ({
+          id: `trading-${tradingCred.platform.toLowerCase()}`,
+          name: tradingCred.name,
+          issuer: tradingCred.platform,
+          type: "Trading",
+          issuedDate: new Date("2024-09-29"),
+          validated: true,
+          verificationStatus: "verified" as const,
+          hasToken: false, // Initially no tokens
+          description: tradingCred.description,
+          emoji: tradingCred.emoji,
+          nftImage: tradingCred.nftImage,
+          logoImage: tradingCred.logoImage,
+          requirements: tradingCred.requirements,
+        }));
+
+        // Add some traditional credentials as well for variety
+        const traditionalCredentials = [
           {
-            id: "cred_123",
-            name: "Professional Developer",
-            issuer: "Tech Academy",
+            id: "edu-001",
+            name: "Computer Science Degree",
+            issuer: "MIT",
+            type: "Education",
             issuedDate: new Date("2024-01-15"),
             validated: true,
+            verificationStatus: "verified" as const,
+            hasToken: false,
+            description: "Bachelor's degree in Computer Science from MIT"
           },
           {
-            id: "cred_456",
-            name: "Blockchain Expert",
-            issuer: "Crypto Institute",
-            issuedDate: new Date("2024-03-20"),
+            id: "skill-004",
+            name: "Blockchain Expert Badge",
+            issuer: "CryptoAcademy",
+            type: "Skill",
+            issuedDate: new Date("2024-04-05"),
             validated: true,
-          },
+            verificationStatus: "verified" as const,
+            hasToken: false,
+            description: "Advanced blockchain development skills certification"
+          }
         ];
-        setUserCredentials(credentials);
+
+        setUserCredentials([...credentials, ...traditionalCredentials]);
       } catch (err) {
         console.error("Error fetching credentials:", err);
       }
@@ -72,6 +140,17 @@ const TokenCreationForm: React.FC<TokenCreationFormProps> = ({
 
     fetchCredentials();
   }, [airService, isLoggedIn]);
+
+  // Handle pre-selection from URL parameters
+  useEffect(() => {
+    const credentialId = searchParams.get('credentialId');
+    if (credentialId && userCredentials.length > 0) {
+      const credential = userCredentials.find(c => c.id === credentialId);
+      if (credential && !credential.hasToken && credential.verificationStatus === "verified") {
+        handleCredentialSelect(credential);
+      }
+    }
+  }, [searchParams, userCredentials]);
 
   const handleCredentialSelect = (credential: any) => {
     setSelectedCredential(credential);
@@ -82,6 +161,128 @@ const TokenCreationForm: React.FC<TokenCreationFormProps> = ({
       symbol: credential.name.split(" ").map((w: string) => w[0]).join("").toUpperCase().slice(0, 4),
     }));
   };
+
+  // Load stored credential statuses from localStorage
+  const loadCredentialStatuses = () => {
+    if (!userAddress) return;
+
+    const stored = localStorage.getItem(`trading_credentials_${userAddress.toLowerCase()}`);
+    if (stored) {
+      try {
+        setCredentialStatuses(JSON.parse(stored));
+      } catch (err) {
+        console.error("Failed to parse stored credentials:", err);
+      }
+    }
+  };
+
+  // Save credential statuses to localStorage
+  const saveCredentialStatuses = (statuses: CredentialStatus[]) => {
+    if (!userAddress) return;
+
+    localStorage.setItem(
+      `trading_credentials_${userAddress.toLowerCase()}`,
+      JSON.stringify(statuses)
+    );
+    setCredentialStatuses(statuses);
+  };
+
+  // Get credential status for a platform
+  const getCredentialStatus = (platform: TradingPlatform): CredentialStatus => {
+    const status = credentialStatuses.find(s => s.platform === platform);
+    return status || {
+      platform,
+      isMinted: false,
+      isVerified: false,
+    };
+  };
+
+  // Handle credential issuing
+  const handleIssueCredential = async (platform: TradingPlatform) => {
+    if (!airService || !isLoggedIn || !userAddress) return;
+
+    try {
+      setIssuingCredentials(prev => new Set(prev).add(platform));
+
+      // Simulate issuing process
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // Generate a mock credential ID
+      const credentialId = `cred_${platform.toLowerCase()}_${Date.now()}`;
+
+      // Update credential status
+      const newStatus: CredentialStatus = {
+        platform,
+        isMinted: true,
+        isVerified: false,
+        credentialId,
+        mintedAt: new Date(),
+      };
+
+      const updatedStatuses = [
+        ...credentialStatuses.filter(s => s.platform !== platform),
+        newStatus,
+      ];
+
+      saveCredentialStatuses(updatedStatuses);
+
+    } catch (err) {
+      console.error("Failed to issue credential:", err);
+    } finally {
+      setIssuingCredentials(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(platform);
+        return newSet;
+      });
+    }
+  };
+
+  // Handle credential verification
+  const handleVerifyCredential = async (platform: TradingPlatform) => {
+    const credentialStatus = getCredentialStatus(platform);
+    if (!credentialStatus.isMinted || !credentialStatus.credentialId) return;
+
+    try {
+      setVerifyingCredentials(prev => new Set(prev).add(platform));
+
+      // Simulate on-chain verification
+      await new Promise(resolve => setTimeout(resolve, 3000));
+
+      // Generate a mock transaction hash
+      const txHash = `0x${Math.random().toString(16).substr(2, 64)}`;
+
+      // Update credential status
+      const updatedStatus: CredentialStatus = {
+        ...credentialStatus,
+        isVerified: true,
+        verificationTxHash: txHash,
+        verifiedAt: new Date(),
+      };
+
+      const updatedStatuses = [
+        ...credentialStatuses.filter(s => s.platform !== platform),
+        updatedStatus,
+      ];
+
+      saveCredentialStatuses(updatedStatuses);
+
+    } catch (err) {
+      console.error("Failed to verify credential:", err);
+    } finally {
+      setVerifyingCredentials(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(platform);
+        return newSet;
+      });
+    }
+  };
+
+  // Load credential statuses when user address changes
+  useEffect(() => {
+    if (userAddress) {
+      loadCredentialStatuses();
+    }
+  }, [userAddress]);
 
   const validateForm = (): boolean => {
     const errors: Record<string, string> = {};
@@ -104,8 +305,8 @@ const TokenCreationForm: React.FC<TokenCreationFormProps> = ({
     if (formData.initialLiquidity.tokenAmount < 1000) {
       errors.tokenAmount = "Minimum initial token amount is 1000";
     }
-    if (formData.initialLiquidity.ethAmount < 0.01) {
-      errors.ethAmount = "Minimum ETH amount is 0.01";
+    if (formData.initialLiquidity.usdcAmount < 10) {
+      errors.usdcAmount = "Minimum USDC amount is 10";
     }
 
     setValidationErrors(errors);
@@ -113,25 +314,83 @@ const TokenCreationForm: React.FC<TokenCreationFormProps> = ({
   };
 
   const handleSubmit = async () => {
-    if (!validateForm()) return;
+    if (!validateForm() || !marketplace) return;
+
+    setIsLoading(true);
+    setError(null);
 
     try {
-      const tokenAddress = await createToken(formData);
-      if (tokenAddress) {
-        // Show success message
-        navigate("/tokens", {
+      // First, mint some test USDC for the user
+      await marketplace.mintTestUSDC(formData.initialLiquidity.usdcAmount + 10); // Extra for fees
+
+      // Create the credential token
+      const result = await marketplace.createCredentialToken(
+        formData.credentialId,
+        formData.name,
+        formData.symbol,
+        formData.emissionRate,
+        formData.maxSupply
+      );
+
+      if (result && result.tokenAddress) {
+        // Create market with initial liquidity
+        await marketplace.createMarketWithLiquidity(
+          result.credentialId,
+          result.tokenAddress,
+          marketplace.parseTokens(formData.initialLiquidity.tokenAmount),
+          marketplace.parseUSDC(formData.initialLiquidity.usdcAmount)
+        );
+
+        const tokenAddress = result.tokenAddress;
+        // Store the created token in localStorage
+        const createdToken = {
+          credentialId: formData.credentialId,
+          credentialName: selectedCredential?.name || formData.name,
+          credentialPlatform: selectedCredential?.issuer || "Unknown",
+          tokenName: formData.name,
+          tokenSymbol: formData.symbol,
+          tokenAddress: tokenAddress,
+          emissionRate: formData.emissionRate,
+          maxSupply: formData.maxSupply,
+          initialLiquidity: formData.initialLiquidity,
+          createdAt: new Date().toISOString(),
+          description: selectedCredential?.description,
+          emoji: selectedCredential?.emoji,
+          nftImage: selectedCredential?.nftImage,
+          logoImage: selectedCredential?.logoImage,
+        };
+
+        // Get existing tokens
+        const existingTokens = localStorage.getItem('created_tokens');
+        const tokens = existingTokens ? JSON.parse(existingTokens) : [];
+
+        // Add new token
+        tokens.push(createdToken);
+
+        // Save back to localStorage
+        localStorage.setItem('created_tokens', JSON.stringify(tokens));
+
+        // Dispatch custom event for real-time updates
+        window.dispatchEvent(new CustomEvent('tokenCreated'));
+
+        // Show success message and navigate
+        navigate("/creds", {
           state: { message: "Token created successfully!" },
         });
       }
     } catch (err) {
       console.error("Error creating token:", err);
+      const errorMessage = marketplace?.handleError(err) || "Failed to create token";
+      setError(errorMessage);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const calculateInitialPrice = () => {
-    if (formData.initialLiquidity.tokenAmount && formData.initialLiquidity.ethAmount) {
-      const priceInEth = formData.initialLiquidity.ethAmount / formData.initialLiquidity.tokenAmount;
-      return (priceInEth * 2500).toFixed(6); // Assuming ETH = $2500 for display
+    if (formData.initialLiquidity.tokenAmount && formData.initialLiquidity.usdcAmount) {
+      const priceInUSDC = formData.initialLiquidity.usdcAmount / formData.initialLiquidity.tokenAmount;
+      return priceInUSDC.toFixed(6); // Price in USDC
     }
     return "0";
   };
@@ -196,60 +455,154 @@ const TokenCreationForm: React.FC<TokenCreationFormProps> = ({
           </div>
         </div>
 
-        {/* Step 1: Select Credential */}
+        {/* Step 1: Select and Verify Credential */}
         {step === 1 && (
           <Card>
             <CardHeader>
-              <CardTitle>Select Credential</CardTitle>
+              <CardTitle>Trading Credentials</CardTitle>
               <p className="text-muted-foreground">
-                Choose which credential you want to create a token for
+                Issue and verify your trading credentials to create tokens
               </p>
             </CardHeader>
-            <CardContent className="space-y-4">
-              {userCredentials.length === 0 ? (
-                <div className="text-center py-8">
-                  <p className="text-muted-foreground mb-4">
-                    You don't have any credentials yet
-                  </p>
-                  <Button
-                    variant="outline"
-                    onClick={() => navigate("/issue")}
-                  >
-                    Issue a Credential
-                  </Button>
-                </div>
-              ) : (
-                <div className="grid gap-4">
-                  {userCredentials.map((credential) => (
+            <CardContent className="space-y-6">
+              <div className="grid md:grid-cols-2 gap-6">
+                {TRADING_CREDENTIALS.map((credential) => {
+                  const credentialStatus = getCredentialStatus(credential.platform);
+                  const isIssuing = issuingCredentials.has(credential.platform);
+                  const isVerifying = verifyingCredentials.has(credential.platform);
+                  const canCreateToken = credentialStatus.isMinted && credentialStatus.isVerified;
+                  const isSelected = selectedCredential?.id === `trading-${credential.platform.toLowerCase()}`;
+
+                  return (
                     <div
-                      key={credential.id}
-                      className={`p-4 border rounded-lg cursor-pointer transition-all ${
-                        selectedCredential?.id === credential.id
+                      key={credential.platform}
+                      className={`relative border rounded-lg overflow-hidden transition-all ${
+                        isSelected
                           ? "border-brand-600 bg-brand-50"
                           : "border-border hover:border-brand-400"
                       }`}
-                      onClick={() => handleCredentialSelect(credential)}
                     >
-                      <div className="flex justify-between items-start">
+                      {/* NFT Image Header */}
+                      <div className="relative h-32 bg-black/5 flex items-center justify-center overflow-hidden">
+                        <img
+                          src={credential.nftImage}
+                          alt={credential.name}
+                          className="w-full h-full object-cover"
+                        />
+
+                        {/* Status Badge */}
+                        <div className="absolute top-2 right-2">
+                          <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                            canCreateToken
+                              ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                              : credentialStatus.isMinted
+                              ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
+                              : 'bg-red-500/20 text-red-400 border border-red-500/30'
+                          }`}>
+                            {canCreateToken
+                              ? 'READY'
+                              : credentialStatus.isMinted
+                              ? 'ISSUED'
+                              : 'NOT ISSUED'
+                            }
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Content */}
+                      <div className="p-4 space-y-3">
                         <div>
-                          <h4 className="font-semibold">{credential.name}</h4>
-                          <p className="text-sm text-muted-foreground mt-1">
-                            Issued by {credential.issuer}
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {credential.issuedDate.toLocaleDateString()}
+                          <h4 className="font-bold text-foreground mb-1 flex items-center gap-2">
+                            {credential.emoji} {credential.name}
+                          </h4>
+                          <p className="text-sm text-muted-foreground">
+                            {credential.description}
                           </p>
                         </div>
-                        {credential.validated && (
-                          <span className="px-2 py-1 text-xs bg-green-100 text-green-800 rounded-full">
-                            Verified
-                          </span>
-                        )}
+
+                        {/* Status Steps */}
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <div className={`w-4 h-4 rounded-full ${
+                              credentialStatus.isMinted ? 'bg-green-500' : 'bg-gray-300'
+                            }`} />
+                            <span className="text-sm">Credential Issued</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className={`w-4 h-4 rounded-full ${
+                              credentialStatus.isVerified ? 'bg-green-500' : 'bg-gray-300'
+                            }`} />
+                            <span className="text-sm">On-chain Verified</span>
+                          </div>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="space-y-2">
+                          {!credentialStatus.isMinted ? (
+                            <Button
+                              size="sm"
+                              className="w-full"
+                              disabled={isIssuing || isVerifying}
+                              onClick={() => handleIssueCredential(credential.platform)}
+                            >
+                              {isIssuing ? (
+                                <>
+                                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                                  </svg>
+                                  Issuing...
+                                </>
+                              ) : (
+                                'Issue Credential'
+                              )}
+                            </Button>
+                          ) : !credentialStatus.isVerified ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="w-full"
+                              disabled={isIssuing || isVerifying}
+                              onClick={() => handleVerifyCredential(credential.platform)}
+                            >
+                              {isVerifying ? (
+                                <>
+                                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                                  </svg>
+                                  Verifying...
+                                </>
+                              ) : (
+                                'Verify On-Chain'
+                              )}
+                            </Button>
+                          ) : (
+                            <Button
+                              size="sm"
+                              className={`w-full ${
+                                isSelected
+                                  ? 'bg-brand-600 hover:bg-brand-700'
+                                  : 'bg-brand-600 hover:bg-brand-700'
+                              }`}
+                              onClick={() => {
+                                const credentialData = userCredentials.find(
+                                  c => c.id === `trading-${credential.platform.toLowerCase()}`
+                                );
+                                if (credentialData) {
+                                  handleCredentialSelect(credentialData);
+                                }
+                              }}
+                            >
+                              {isSelected ? 'Selected ✓' : 'Select for Token'}
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  ))}
-                </div>
-              )}
+                  );
+                })}
+              </div>
 
               {validationErrors.credentialId && (
                 <p className="text-sm text-red-600">{validationErrors.credentialId}</p>
@@ -261,7 +614,7 @@ const TokenCreationForm: React.FC<TokenCreationFormProps> = ({
                   disabled={!selectedCredential}
                   className="bg-brand-600 hover:bg-brand-700"
                 >
-                  Continue
+                  Continue to Token Configuration
                 </Button>
               </div>
             </CardContent>
@@ -439,30 +792,30 @@ const TokenCreationForm: React.FC<TokenCreationFormProps> = ({
                   </p>
                 </div>
                 <div>
-                  <Label htmlFor="ethAmount">ETH Amount</Label>
+                  <Label htmlFor="usdcAmount">USDC Amount</Label>
                   <Input
-                    id="ethAmount"
+                    id="usdcAmount"
                     type="number"
-                    step="0.01"
-                    value={formData.initialLiquidity.ethAmount}
+                    step="1"
+                    value={formData.initialLiquidity.usdcAmount}
                     onChange={(e) =>
                       setFormData((prev) => ({
                         ...prev,
                         initialLiquidity: {
                           ...prev.initialLiquidity,
-                          ethAmount: parseFloat(e.target.value) || 0,
+                          usdcAmount: parseFloat(e.target.value) || 0,
                         },
                       }))
                     }
                     placeholder="0.1"
                   />
-                  {validationErrors.ethAmount && (
+                  {validationErrors.usdcAmount && (
                     <p className="text-sm text-red-600 mt-1">
-                      {validationErrors.ethAmount}
+                      {validationErrors.usdcAmount}
                     </p>
                   )}
                   <p className="text-xs text-muted-foreground mt-1">
-                    Minimum: 0.01 ETH
+                    Minimum: 10 USDC
                   </p>
                 </div>
               </div>

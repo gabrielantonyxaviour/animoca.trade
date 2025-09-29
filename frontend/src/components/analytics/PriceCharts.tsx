@@ -297,7 +297,7 @@ export default function PriceCharts({
           </div>
           <div className="text-right">
             <div className="text-3xl font-bold">${currentPrice.toFixed(2)}</div>
-            <div className={`flex items-center gap-1 justify-end ${priceChange >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+            <div className={`flex items-center gap-1 justify-end ${priceChange >= 0 ? 'text-pink-600' : 'text-red-600'}`}>
               {priceChange >= 0 ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
               <span className="font-medium">{Math.abs(priceChange).toFixed(2)}%</span>
             </div>
@@ -341,7 +341,7 @@ export default function PriceCharts({
 
         {isLoading ? (
           <div className="flex justify-center items-center h-96">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-600"></div>
           </div>
         ) : (
           <>
@@ -372,7 +372,7 @@ export default function PriceCharts({
               </div>
             </div>
 
-            <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+            <div className="mt-4 p-4 bg-pink-50 rounded-lg">
               <h4 className="font-bold text-sm mb-2 flex items-center gap-2">
                 <Activity className="w-4 h-4" />
                 Technical Indicators
@@ -386,12 +386,12 @@ export default function PriceCharts({
                 <div>
                   <span className="text-gray-600">MACD:</span>
                   <span className="font-semibold ml-1">0.125</span>
-                  <Badge className="ml-2 text-xs bg-green-600">Bullish</Badge>
+                  <Badge className="ml-2 text-xs bg-pink-600">Bullish</Badge>
                 </div>
                 <div>
                   <span className="text-gray-600">Volume Trend:</span>
                   <span className="font-semibold ml-1">↑ 15%</span>
-                  <Badge className="ml-2 text-xs bg-blue-600">Increasing</Badge>
+                  <Badge className="ml-2 text-xs bg-pink-600">Increasing</Badge>
                 </div>
               </div>
             </div>

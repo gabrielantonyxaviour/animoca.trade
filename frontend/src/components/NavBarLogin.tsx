@@ -1,4 +1,5 @@
-import { ChevronDown, Loader2, Lock } from "lucide-react";
+import { useState, useEffect } from "react";
+import { ChevronDown, Loader2, Lock, DollarSign } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -15,6 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import UsdcMintDialog from "@/components/dialogs/UsdcMintDialog";
 
 interface NavBarLoginProps {
   isLoading: boolean;
@@ -39,6 +41,27 @@ const NavBarLogin = ({
   setCurrentEnv,
   envOptions,
 }: NavBarLoginProps) => {
+  const [usdcBalance, setUsdcBalance] = useState(0);
+  const [showMintDialog, setShowMintDialog] = useState(false);
+
+  // Load USDC balance from localStorage when user logs in
+  useEffect(() => {
+    if (isLoggedIn && userAddress) {
+      const storedBalance = localStorage.getItem(`usdc_balance_${userAddress}`);
+      const balance = storedBalance ? parseInt(storedBalance) : 0;
+      setUsdcBalance(balance);
+    } else {
+      setUsdcBalance(0);
+    }
+  }, [isLoggedIn, userAddress]);
+
+  const handleOpenMintDialog = () => {
+    setShowMintDialog(true);
+  };
+
+  const handleBalanceUpdate = (newBalance: number) => {
+    setUsdcBalance(newBalance);
+  };
 
   if (!isInitialized) {
     return (
@@ -60,7 +83,7 @@ const NavBarLogin = ({
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="flex items-center space-x-2">
-              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+              <div className="w-2 h-2 bg-pink-500 rounded-full"></div>
               {userAddress && (
                 <span className="text-xs font-mono text-muted-foreground">
                   {formatAddress(userAddress)}
@@ -99,6 +122,23 @@ const NavBarLogin = ({
               </Select>
             </div>
             <DropdownMenuSeparator />
+            <div className="px-2 py-2">
+              <div className="text-xs text-muted-foreground mb-2">mock USDC balance:</div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-semibold">{usdcBalance.toLocaleString()} USDC</span>
+                <DollarSign className="h-4 w-4 text-green-600" />
+              </div>
+              <Button
+                onClick={handleOpenMintDialog}
+                disabled={!isLoggedIn}
+                size="sm"
+                className="w-full bg-green-600 hover:bg-green-700 text-xs"
+              >
+                <DollarSign className="mr-1 h-3 w-3" />
+                Get USDC
+              </Button>
+            </div>
+            <DropdownMenuSeparator />
             <DropdownMenuItem onClick={onLogout}>
               disconnect
             </DropdownMenuItem>
@@ -108,7 +148,7 @@ const NavBarLogin = ({
         <Button
           onClick={onLogin}
           disabled={isLoading}
-          className="bg-brand-600 hover:bg-brand-700"
+          className="bg-pink-600 hover:bg-pink-700 border border-pink-500/50"
         >
           {isLoading ? (
             <>
@@ -123,6 +163,15 @@ const NavBarLogin = ({
           )}
         </Button>
       )}
+
+      {/* USDC Minting Dialog */}
+      <UsdcMintDialog
+        isOpen={showMintDialog}
+        onClose={() => setShowMintDialog(false)}
+        userAddress={userAddress}
+        isLoggedIn={isLoggedIn}
+        onBalanceUpdate={handleBalanceUpdate}
+      />
     </div>
   );
 };

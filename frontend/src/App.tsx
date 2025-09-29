@@ -1,20 +1,15 @@
 import { useState, useEffect } from "react";
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate } from "react-router-dom";
 import "./App.css";
 import CredentialIssuance from "./components/issuance/CredentialIssuance";
 import CredentialVerification from "./components/verification/CredentialVerification";
-import TokenDashboard from "./components/tokens/TokenDashboard";
+import CredentialMarkets from "./components/credentials/CredentialMarkets";
+import CredentialTradingPage from "./components/credentials/CredentialTradingPage";
 import TokenCreationForm from "./components/tokens/TokenCreationForm";
-import TokenPortfolio from "./components/tokens/TokenPortfolio";
-import ClaimTokensInterface from "./components/tokens/ClaimTokensInterface";
-import SwapInterface from "./components/trading/SwapInterface";
-import LiquidityProvider from "./components/trading/LiquidityProvider";
-import PoolManagement from "./components/trading/PoolManagement";
 import AnalyticsDashboard from "./components/analytics/AnalyticsDashboard";
 import NavBarLogin from "./components/NavBarLogin";
+import LandingPage from "./components/LandingPage";
 import { ThemeProvider } from "./components/theme-provider";
-import { ThemeToggle } from "./components/theme-toggle";
-import { Input } from "./components/ui/input";
 import { Label } from "./components/ui/label";
 import { AirService, BUILD_ENV, type AirEventListener, type BUILD_ENV_TYPE } from "@mocanetwork/airkit";
 import { getEnvironmentConfig, type EnvironmentConfig } from "./config/environments";
@@ -31,21 +26,17 @@ const ENV_OPTIONS = [
 
 // Component to get current flow title
 const FlowTitle = () => {
-  const location = useLocation();
-
-  if (location.pathname === "/issue") {
-    return <span className="text-brand-600">issuance</span>;
-  } else if (location.pathname === "/verify") {
-    return <span className="text-verify-600">verification</span>;
-  } else if (location.pathname.startsWith("/tokens")) {
-    return <span className="text-brand-600">token ecosystem</span>;
-  } else if (location.pathname.startsWith("/trade") || location.pathname.startsWith("/pools")) {
-    return <span className="text-brand-600">trading platform</span>;
-  } else if (location.pathname.startsWith("/analytics")) {
-    return <span className="text-brand-600">analytics dashboard</span>;
-  }
-
-  return <span>air credential demo</span>;
+  const navigate = useNavigate(); // Use the 
+  return (
+    <span
+      className="text-pink-500 cursor-pointer"
+      onClick={() => {
+        navigate("/");
+      }}
+    >
+      animoca.trade
+    </span>
+  );
 };
 
 // Function to get default partner ID based on current route
@@ -96,7 +87,7 @@ function AppRoutes({
   return (
     <div className="min-h-screen bg-black transition-colors">
       {/* Header */}
-      <header className="bg-background border-b border-border shadow-sm transition-colors">
+      <header className="bg-background border-b border-pink-500/20 shadow-sm transition-colors">
         <div className="max-w-full sm:max-w-7xl mx-auto px-2 sm:px-4 lg:px-8">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center h-auto sm:h-16 gap-2 sm:gap-0 py-2 sm:py-0">
             <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-1 sm:space-y-0 sm:space-x-6">
@@ -104,72 +95,36 @@ function AppRoutes({
                 <FlowTitle />
               </h1>
               <div className="flex items-center space-x-2">
-                <Label htmlFor="partner-id" className="text-xs text-muted-foreground whitespace-nowrap">
+                <Label className="text-xs text-muted-foreground whitespace-nowrap">
                   partner id:
                 </Label>
-                <Input
-                  id="partner-id"
-                  type="text"
-                  value={partnerId}
-                  onChange={(e) => setPartnerId(e.target.value)}
-                  className="text-xs font-mono min-w-[200px] h-8"
-                  placeholder="enter partner id"
-                />
+                <span className="text-xs font-mono text-foreground bg-muted px-2 py-1 rounded border min-w-[200px] h-8 flex items-center">
+                  {partnerId}
+                </span>
               </div>
             </div>
             <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-8 w-full sm:w-auto">
               <nav className="flex flex-row space-x-2 sm:space-x-8 w-full sm:w-auto">
                 <a
-                  href="/issue"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex-1 sm:flex-none px-3 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors text-muted-foreground hover:text-foreground hover:bg-muted text-center"
+                  href="/"
+                  className="flex-1 sm:flex-none px-3 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors text-muted-foreground hover:text-pink-400 hover:bg-muted border border-transparent hover:border-pink-500/30 text-center"
                 >
-                  issuance
+                  home
                 </a>
                 <a
-                  href="/verify"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex-1 sm:flex-none px-3 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors text-muted-foreground hover:text-foreground hover:bg-muted text-center"
+                  href="/creds"
+                  className="flex-1 sm:flex-none px-3 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors text-muted-foreground hover:text-pink-400 hover:bg-muted border border-transparent hover:border-pink-500/30 text-center"
                 >
-                  verification
-                </a>
-                <a
-                  href="/tokens"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex-1 sm:flex-none px-3 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors text-muted-foreground hover:text-foreground hover:bg-muted text-center"
-                >
-                  tokens
-                </a>
-                <a
-                  href="/trade"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex-1 sm:flex-none px-3 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors text-muted-foreground hover:text-foreground hover:bg-muted text-center"
-                >
-                  trade
-                </a>
-                <a
-                  href="/pools"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex-1 sm:flex-none px-3 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors text-muted-foreground hover:text-foreground hover:bg-muted text-center"
-                >
-                  pools
+                  markets
                 </a>
                 <a
                   href="/analytics"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex-1 sm:flex-none px-3 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors text-muted-foreground hover:text-foreground hover:bg-muted text-center"
+                  className="flex-1 sm:flex-none px-3 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors text-muted-foreground hover:text-pink-400 hover:bg-muted border border-transparent hover:border-pink-500/30 text-center"
                 >
                   analytics
                 </a>
               </nav>
               <div className="flex items-center space-x-4">
-                <ThemeToggle />
                 <div className="w-full sm:w-auto">
                   <NavBarLogin
                     isLoading={isLoading}
@@ -192,10 +147,57 @@ function AppRoutes({
       {/* Main Content */}
       <main className="flex-1">
         <Routes>
-          {/* Redirect root to /issue */}
-          <Route path="/" element={<Navigate to="/issue" replace />} />
+          {/* Landing Page */}
+          <Route path="/" element={<LandingPage />} />
 
-          {/* Issuance Flow */}
+          {/* Credential Markets */}
+          <Route
+            path="/creds"
+            element={
+              <CredentialMarkets
+                airService={airService}
+                isLoggedIn={isLoggedIn}
+                userAddress={userAddress}
+              />
+            }
+          />
+
+          {/* Create New Credential Token */}
+          <Route
+            path="/creds/create"
+            element={
+              <TokenCreationForm
+                airService={airService}
+                isLoggedIn={isLoggedIn}
+                userAddress={userAddress}
+              />
+            }
+          />
+
+          {/* Individual Credential Trading Page */}
+          <Route
+            path="/creds/:id"
+            element={
+              <CredentialTradingPage
+                airService={airService}
+                isLoggedIn={isLoggedIn}
+                userAddress={userAddress}
+              />
+            }
+          />
+
+          {/* Analytics Dashboard */}
+          <Route
+            path="/analytics"
+            element={
+              <AnalyticsDashboard
+                environmentConfig={environmentConfig}
+              />
+            }
+          />
+
+
+          {/* Hidden Routes - Keep but don't show in navigation */}
           <Route
             path="/issue"
             element={
@@ -207,8 +209,6 @@ function AppRoutes({
               />
             }
           />
-
-          {/* Verification Flow */}
           <Route
             path="/verify"
             element={
@@ -220,101 +220,13 @@ function AppRoutes({
               />
             }
           />
-
-          {/* Token Management Routes */}
-          <Route
-            path="/tokens"
-            element={
-              <TokenDashboard
-                airService={airService}
-                isLoggedIn={isLoggedIn}
-                userAddress={userAddress}
-              />
-            }
-          />
-          <Route
-            path="/tokens/create"
-            element={
-              <TokenCreationForm
-                airService={airService}
-                isLoggedIn={isLoggedIn}
-                userAddress={userAddress}
-              />
-            }
-          />
-          <Route
-            path="/tokens/portfolio"
-            element={
-              <TokenPortfolio
-                airService={airService}
-                isLoggedIn={isLoggedIn}
-                userAddress={userAddress}
-              />
-            }
-          />
-          <Route
-            path="/tokens/claim"
-            element={
-              <ClaimTokensInterface
-                airService={airService}
-                isLoggedIn={isLoggedIn}
-                userAddress={userAddress}
-                environmentConfig={environmentConfig}
-              />
-            }
-          />
-
-          {/* Trading Routes */}
-          <Route
-            path="/trade"
-            element={
-              <SwapInterface
-                airService={airService}
-                isLoggedIn={isLoggedIn}
-                userAddress={userAddress}
-                environmentConfig={environmentConfig}
-              />
-            }
-          />
-          <Route
-            path="/pools"
-            element={
-              <PoolManagement
-                airService={airService}
-                isLoggedIn={isLoggedIn}
-                userAddress={userAddress}
-                environmentConfig={environmentConfig}
-              />
-            }
-          />
-          <Route
-            path="/pools/:poolId/liquidity"
-            element={
-              <LiquidityProvider
-                airService={airService}
-                isLoggedIn={isLoggedIn}
-                userAddress={userAddress}
-                environmentConfig={environmentConfig}
-              />
-            }
-          />
-
-          {/* Analytics Routes */}
-          <Route
-            path="/analytics"
-            element={
-              <AnalyticsDashboard
-                environmentConfig={environmentConfig}
-              />
-            }
-          />
         </Routes>
       </main>
 
       {/* Footer */}
-      <footer className="bg-background border-t border-border transition-colors">
+      <footer className="bg-background border-t border-pink-500/20 transition-colors">
         <div className="max-w-full sm:max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 py-4 sm:py-6">
-          <p className="text-center text-muted-foreground text-xs sm:text-sm">powered by air credential sdk</p>
+          <p className="text-center text-muted-foreground text-xs sm:text-sm">animoca.trade - turn credentials into liquid markets</p>
         </div>
       </footer>
     </div>
@@ -342,6 +254,10 @@ function App() {
       return;
     }
 
+    // Reset initialization state
+    setIsInitialized(false);
+    console.log("Initializing AirService with env:", env, "partnerId:", partnerIdToUse);
+
     try {
       const service = new AirService({ partnerId: partnerIdToUse });
       await service.init({ buildEnv: env as (typeof BUILD_ENV)[keyof typeof BUILD_ENV], enableLogging, skipRehydration: false });
@@ -356,9 +272,9 @@ function App() {
           setUserAddress(result.abstractAccountAddress || null);
         } else {
           console.log("no abstractAccountAddress @ initializeAirService");
-          const accounts = await airService?.provider.request({ method: "eth_accounts", params: [] });
+          const accounts = await service?.provider.request({ method: "eth_accounts", params: [] });
 
-          console.log("accounts @ initializeAirService", accounts, airService?.provider);
+          console.log("accounts @ initializeAirService", accounts, service?.provider);
           setUserAddress(Array.isArray(accounts) && accounts.length > 0 ? accounts[0] : null);
         }
       }
@@ -369,7 +285,7 @@ function App() {
           if (data.result.abstractAccountAddress) {
             setUserAddress(data.result.abstractAccountAddress || null);
           } else {
-            const accounts = await airService?.provider.request({ method: "eth_accounts", params: [] });
+            const accounts = await service?.provider.request({ method: "eth_accounts", params: [] });
             setUserAddress(Array.isArray(accounts) && accounts.length > 0 ? accounts[0] : null);
           }
         } else if (data.event === "logged_out") {
@@ -384,23 +300,17 @@ function App() {
     }
   };
 
-  // Re-initialize AIRKit when partner ID or environment changes
+  // Initialize AIRKit on mount and when partner ID or environment changes
   useEffect(() => {
     initializeAirService(currentEnv, partnerId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentEnv, partnerId]);
 
-  useEffect(() => {
-    // Only run on mount for initial load
-    // (the above effect will handle env and partner ID changes)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    initializeAirService(currentEnv, partnerId);
     return () => {
       if (airService) {
         airService.cleanUp();
       }
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentEnv, partnerId]);
 
   const handleLogin = async () => {
     if (!airService) return;
@@ -432,7 +342,7 @@ function App() {
   };
 
   return (
-    <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
+    <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
       <Router>
         <AppRoutes
           airService={airService}

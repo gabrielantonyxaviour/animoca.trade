@@ -115,10 +115,8 @@ contract FullSystemTest is Test {
     // ============ Test 2: Passive Token Generation ============
 
     function test_PassiveTokenGeneration() public {
-        // Register credential holder for passive generation
+        // No need to register for passive generation - users can directly claim
         vm.startPrank(credentialHolder1);
-        generator.registerForPassiveGeneration(credential1);
-        vm.stopPrank();
 
         // Fast forward 1 day
         vm.warp(block.timestamp + DAY);

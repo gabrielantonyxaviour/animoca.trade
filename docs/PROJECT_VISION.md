@@ -1,7 +1,7 @@
-# Credential Token Ecosystem - Master Vision
+# turn credentials into liquid markets - Master Vision
 
 ## What We're Building
-A decentralized marketplace where digital credentials become tradeable tokens, with market prices reflecting credential reputation through automated market making (AMM) pools.
+**"The stock market for skills"** - A decentralized marketplace where digital credentials become tradeable tokens, with market forces determining the value of professional reputation and skills through automated market making (AMM) pools.
 
 ## Core Product Mechanics
 
@@ -16,17 +16,18 @@ A decentralized marketplace where digital credentials become tradeable tokens, w
 - **Lock-up Period**: Initial liquidity locked for 30 days, then graduated release
 - **AMM Pool Creation**: Automatic pool creation enables immediate trading
 
-### 3. Passive Token Generation
-- **Continuous Minting**: Credential holders earn tokens over time while holding valid credentials
-- **Rate Calculation**: Emission rates based on credential type, rarity, and time held
-- **Validation Checks**: Only active/valid credentials generate tokens (integrates with AIR verification)
-- **Claiming Mechanism**: Holders can claim accumulated tokens anytime
+### 3. Verification Fee Revenue System
+- **Fee Collection**: Token holders earn USDC from credential verification activities
+- **Revenue Sources**: Credential minting fees, on-chain verification fees, high-value credential charges
+- **Proportional Distribution**: Revenue distributed to token holders based on their percentage of total token supply
+- **Real Utility**: Earnings tied to actual credential usage and verification demand
 
-### 4. AMM Trading System
+### 4. USDC-Based AMM Trading System
+- **USDC Collateral**: All trading pairs use USDC as the base currency for stability
 - **Pool Mechanics**: Standard x*y=k constant product formula
 - **Fee Structure**: 0.3% trading fee (0.25% to LPs, 0.05% to protocol)
-- **Liquidity Provision**: Anyone can become LP and earn fees
-- **Price Discovery**: Market forces determine token values
+- **Mock USDC**: Free-mint USDC for testing and liquidity provision
+- **Price Discovery**: Market forces determine credential token values in USDC terms
 
 ### 5. Reputation Scoring System
 - **Price-Based Reputation**: Token price directly reflects credential reputation
@@ -37,19 +38,20 @@ A decentralized marketplace where digital credentials become tradeable tokens, w
 ## Business Model & Stakeholder Value
 
 ### Credential Holders
-- **Passive Income**: Continuous token generation while holding credentials
-- **Market Participation**: Can trade tokens or provide liquidity
+- **Verification Revenue**: Earn USDC from credential verification activities
+- **Market Participation**: Can trade tokens or provide USDC liquidity
 - **Reputation Building**: Higher token prices increase credential reputation
+- **Real Utility Income**: Earnings reflect actual credential demand and usage
 
 ### Token Creators
-- **Initial Investment**: Must provide liquidity to launch token
-- **Returns**: Benefit from token appreciation and market growth
-- **Reputation Exposure**: Token performance reflects on their credential
+- **Initial Investment**: Must provide USDC liquidity to launch token
+- **Returns**: Benefit from token appreciation and verification fee revenue
+- **Reputation Exposure**: Token performance reflects credential market value
 
 ### Liquidity Providers (LPs)
-- **Trading Fees**: Earn 0.25% of all trading volume
-- **Token Exposure**: Benefit from token price appreciation
-- **Flexible Participation**: Add/remove liquidity anytime after lock-up
+- **USDC Trading Fees**: Earn 0.25% of all trading volume in USDC
+- **Token Exposure**: Benefit from credential token price appreciation
+- **Flexible Participation**: Add/remove USDC liquidity anytime after lock-up
 
 ### Traders/Speculators
 - **Market Speculation**: Buy/sell based on credential reputation predictions
@@ -71,22 +73,22 @@ A decentralized marketplace where digital credentials become tradeable tokens, w
 5. **Market Launch**: Token becomes tradeable, price discovery begins
 
 ### Daily User Flow (Credential Holder)
-1. **Check Portfolio**: View accumulated tokens from all credentials
-2. **Claim Tokens**: Collect newly generated tokens
-3. **Market Decision**: Hold, trade, or provide liquidity
-4. **Monitor Reputation**: Track credential reputation scores
+1. **Check Portfolio**: View USDC earnings from credential verification fees
+2. **Collect Revenue**: Claim accumulated USDC from verification activities
+3. **Market Decision**: Hold tokens, trade for USDC, or provide liquidity
+4. **Monitor Reputation**: Track credential reputation scores and fee generation
 
 ### Trading Flow
-1. **Browse Markets**: View available credential tokens and reputation scores
-2. **Market Analysis**: Check price history, volume, liquidity depth
-3. **Execute Trade**: Swap tokens with slippage protection
-4. **Portfolio Tracking**: Monitor positions and P&L
+1. **Browse Markets**: View credential tokens priced in USDC with reputation scores
+2. **Market Analysis**: Check USDC price history, volume, liquidity depth
+3. **Execute Trade**: Swap between tokens and USDC with slippage protection
+4. **Portfolio Tracking**: Monitor USDC positions and P&L
 
 ### Liquidity Provider Flow
-1. **Pool Selection**: Choose pools based on volume and fee potential
-2. **Add Liquidity**: Provide both tokens to earn LP tokens
-3. **Earn Fees**: Collect 0.25% of trading volume automatically
-4. **Position Management**: Monitor IL risk and fee earnings
+1. **Pool Selection**: Choose credential-USDC pools based on volume and fee potential
+2. **Add Liquidity**: Provide credential tokens + USDC to earn LP tokens
+3. **Earn USDC Fees**: Collect 0.25% of trading volume in USDC automatically
+4. **Position Management**: Monitor IL risk and USDC fee earnings
 
 ## Integration with Existing AIR System
 
@@ -162,4 +164,4 @@ A decentralized marketplace where digital credentials become tradeable tokens, w
 - AI-powered reputation analysis and predictions
 - Integration with traditional credential systems (universities, employers)
 
-This system creates a new primitive: **credentials as tradeable assets where market forces determine reputation value**, enabling unprecedented monetization and validation of digital credentials.
+This system creates a new primitive: **"The stock market for skills"** where credentials become tradeable assets, market forces determine reputation value, and real verification activity generates sustainable revenue for token holders.

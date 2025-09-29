@@ -290,7 +290,7 @@ const TokenPortfolio: React.FC<TokenPortfolioProps> = ({
                   No tokens in your portfolio yet
                 </p>
                 <Button
-                  onClick={() => navigate("/tokens/create")}
+                  onClick={() => navigate("/creds/create")}
                   className="bg-brand-600 hover:bg-brand-700"
                 >
                   Create Your First Token
@@ -362,7 +362,7 @@ const TokenPortfolio: React.FC<TokenPortfolioProps> = ({
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => navigate(`/tokens/${token.address}`)}
+                              onClick={() => navigate(`/creds/${token.address}`)}
                             >
                               Details
                             </Button>

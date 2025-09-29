@@ -6,6 +6,7 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "../interfaces/IPassiveTokenGenerator.sol";
 import "../interfaces/ICredentialTokenFactory.sol";
 import "../interfaces/ICredentialToken.sol";
+import "../interfaces/IReputationOracle.sol";
 
 /**
  * @title PassiveTokenGenerator
@@ -25,6 +26,9 @@ contract PassiveTokenGenerator is IPassiveTokenGenerator, Ownable, ReentrancyGua
 
     /// @dev Factory contract for credential tokens
     ICredentialTokenFactory private immutable factory;
+
+    /// @dev Reputation oracle for market data
+    IReputationOracle private reputationOracle;
 
     /// @dev Base emission rate (10-50 tokens per day, scaled by PRECISION)
     uint256 private baseEmissionRate;
@@ -499,6 +503,34 @@ contract PassiveTokenGenerator is IPassiveTokenGenerator, Ownable, ReentrancyGua
             totalActiveHolders
         );
     }
+
+    // ============ Reputation Oracle Functions ============
+
+    /**
+     * @dev Sets the reputation oracle address
+     * @param oracle_ The new reputation oracle address
+     */
+    function setReputationOracle(address oracle_) external onlyOwner {
+        if (oracle_ == address(0)) revert InvalidCredential(bytes32(0));
+        reputationOracle = IReputationOracle(oracle_);
+        emit ReputationOracleSet(oracle_);
+    }
+
+    /**
+     * @dev Returns the reputation oracle address
+     * @return The current reputation oracle address
+     */
+    function getReputationOracle() external view returns (address) {
+        return address(reputationOracle);
+    }
+
+    // ============ Events ============
+
+    /**
+     * @dev Emitted when reputation oracle is set
+     * @param oracle The oracle address
+     */
+    event ReputationOracleSet(address indexed oracle);
 
     // ============ View Functions ============
 

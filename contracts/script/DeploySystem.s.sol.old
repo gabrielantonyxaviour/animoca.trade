@@ -33,7 +33,7 @@ contract DeploySystem is Script {
         uint256 timestamp
     );
 
-    function run() external {
+    function run() external virtual {
         // Load configuration
         _loadConfig();
 
@@ -120,7 +120,7 @@ contract DeploySystem is Script {
 
     function _deployPoolFactory() internal returns (PoolFactory) {
         console.log("  Deploying PoolFactory...");
-        PoolFactory factory = new PoolFactory(address(tokenFactory));
+        PoolFactory factory = new PoolFactory(config.admin); // Use admin as protocol fee recipient
         console.log("  PoolFactory deployed at:", address(factory));
         return factory;
     }
@@ -140,14 +140,14 @@ contract DeploySystem is Script {
     }
 
     function _connectContracts() internal {
-        console.log("  Setting PassiveTokenGenerator in TokenFactory...");
-        tokenFactory.setPassiveTokenGenerator(address(generator));
+        console.log("  Setting FeeCollector in TokenFactory...");
+        tokenFactory.setFeeCollector(address(generator));
 
         console.log("  Setting ReputationOracle in PassiveGenerator...");
         generator.setReputationOracle(address(oracle));
 
         console.log("  Setting Oracle operator...");
-        oracle.addOperator(config.initialOracle);
+        oracle.addPriceFeedUpdater(config.initialOracle);
 
         console.log("  Contracts connected successfully");
     }
@@ -156,12 +156,16 @@ contract DeploySystem is Script {
         // Configure initial system parameters
         console.log("  Configuring system parameters...");
 
-        // Set default reputation score
-        oracle.setDefaultReputation(50); // 50% default reputation
+        // Set reputation calculation parameters
+        oracle.setReputationParameters(
+            7 days,  // twapWindow - 7 days for reputation calculation
+            30,      // volumeWeight - 30% weight for volume
+            40,      // liquidityWeight - 40% weight for liquidity
+            30       // stabilityWeight - 30% weight for price stability
+        );
 
-        // Set generation parameters
-        generator.setMinimumClaimInterval(86400); // 1 day minimum between claims
-        generator.setMaxAccumulationDays(30); // Max 30 days accumulation
+        // Set max price age to 1 hour
+        oracle.setMaxPriceAge(3600);
 
         console.log("  System configuration complete");
     }
@@ -216,10 +220,6 @@ contract DeploySystem is Script {
             generator.getReputationOracle() == address(oracle),
             "Oracle not connected to Generator"
         );
-        require(
-            poolFactory.getTokenFactory() == address(tokenFactory),
-            "TokenFactory not connected to PoolFactory"
-        );
 
         // Verify ownership
         if (config.admin != config.deployer) {
@@ -259,7 +259,7 @@ contract DeploySystem is Script {
         _generateTypeScriptConfig();
     }
 
-    function _generateTypeScriptConfig() internal view {
+    function _generateTypeScriptConfig() internal {
         string memory network = block.chainid == 11155111 ? "sepolia" : "mainnet";
 
         string memory tsConfig = string(abi.encodePacked(
@@ -309,7 +309,7 @@ contract DeploySystem is Script {
         console.log("Test token created:", testToken);
 
         // Create a pool for the test token
-        address testPool = poolFactory.createPool(testToken);
+        address testPool = poolFactory.createPool(testToken, 1000e18); // 1000 tokens initial liquidity
         console.log("Test pool created:", testPool);
 
         vm.stopBroadcast();
@@ -323,7 +323,7 @@ contract DeployToSepolia is DeploySystem {
     function run() external override {
         // Set Sepolia-specific configuration
         require(block.chainid == 11155111, "Not on Sepolia");
-        super.run();
+        this.run();
     }
 }
 
@@ -336,6 +336,6 @@ contract DeployToMainnet is DeploySystem {
         console.log("WARNING: Deploying to MAINNET");
         console.log("Press ENTER to continue or CTRL+C to abort...");
 
-        super.run();
+        this.run();
     }
 }

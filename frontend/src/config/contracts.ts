@@ -24,25 +24,25 @@ export const NETWORK_CONFIG = {
 
 export const CONTRACT_ADDRESSES = {
   mocaDevnet: {
-    // Will be populated by deployment to Moca Devnet
-    CREDENTIAL_TOKEN_FACTORY: '',
-    PASSIVE_TOKEN_GENERATOR: '',
-    REPUTATION_ORACLE: '',
-    POOL_FACTORY: '',
+    // USDC-Based Marketplace Contract Addresses (Moca Devnet)
+    USDC: '0x12D2162F47AAAe1B0591e898648605daA186D644',
+    CREDENTIAL_TOKEN_FACTORY: '0xa6a621e9C92fb8DFC963d2C20e8C5CB4C5178cBb',
+    FEE_COLLECTOR: '0x62A3E29afc75a91f40599f4f7314fF46eBa9bF93',
+    CREDENTIAL_AMM: '0x60DdECC1f8Fa85b531D4891Ac1901Ab263066A67',
   },
   sepolia: {
-    // Will be populated by Session 1-3 deployments
+    // Will be populated for sepolia deployment
+    USDC: '',
     CREDENTIAL_TOKEN_FACTORY: '',
-    PASSIVE_TOKEN_GENERATOR: '',
-    REPUTATION_ORACLE: '',
-    POOL_FACTORY: '',
+    FEE_COLLECTOR: '',
+    CREDENTIAL_AMM: '',
   },
   mainnet: {
-    // Will be populated for production deployment in Session 8
+    // Will be populated for production deployment
+    USDC: '',
     CREDENTIAL_TOKEN_FACTORY: '',
-    PASSIVE_TOKEN_GENERATOR: '',
-    REPUTATION_ORACLE: '',
-    POOL_FACTORY: '',
+    FEE_COLLECTOR: '',
+    CREDENTIAL_AMM: '',
   },
 } as const;
 
@@ -63,24 +63,24 @@ export const getContractAddresses = (chainId: number) => {
 // Contract deployment status tracking
 export const DEPLOYMENT_STATUS = {
   mocaDevnet: {
-    foundationSetup: false,        // Factory contracts
-    coreTokens: false,             // Token generation
-    ammPools: false,               // DEX pools
-    tokenGeneration: false,        // Passive token generator
-    reputationOracle: false,       // Reputation system
+    usdc: true,                    // Mock USDC ✓
+    factory: true,                 // Credential Token Factory ✓
+    feeCollector: true,            // Fee Collector ✓
+    amm: true,                     // Credential AMM ✓
+    marketplaceReady: true,        // Complete USDC-based marketplace ✓
   },
   sepolia: {
-    foundationSetup: false,        // Session 1
-    coreTokens: false,             // Session 2
-    ammPools: false,               // Session 3
-    tokenGeneration: false,        // Session 6
-    reputationOracle: false,       // Session 7
+    usdc: false,
+    factory: false,
+    feeCollector: false,
+    amm: false,
+    marketplaceReady: false,
   },
   mainnet: {
-    foundationSetup: false,        // Session 8
-    coreTokens: false,             // Session 8
-    ammPools: false,               // Session 8
-    tokenGeneration: false,        // Session 8
-    reputationOracle: false,       // Session 8
+    usdc: false,                   // Will use real USDC
+    factory: false,
+    feeCollector: false,
+    amm: false,
+    marketplaceReady: false,
   },
 } as const;

@@ -3,7 +3,10 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./interfaces/ICredentialTokenFactory.sol";
+import "./interfaces/IFeeCollector.sol";
 import "./CredentialToken.sol";
 
 /**
@@ -29,13 +32,18 @@ contract CredentialTokenFactory is ICredentialTokenFactory, Ownable, ReentrancyG
     /// @dev Address of the AIR credential verification contract (for future integration)
     address private _credentialVerifier;
 
-    /// @dev Address of the PassiveTokenGenerator contract
-    address private _passiveTokenGenerator;
+    /// @dev Address of the FeeCollector contract
+    address private _feeCollector;
+
+    /// @dev USDC token contract for fee collection
+    IERC20 private _usdcToken;
 
     // ============ Events ============
 
-    event PassiveTokenGeneratorSet(address indexed generator);
+    event FeeCollectorSet(address indexed feeCollector);
     event CredentialVerifierSet(address indexed verifier);
+    event USDCTokenSet(address indexed usdcToken);
+    event MintingFeeCollected(bytes32 indexed credentialId, address indexed payer, uint256 feeAmount);
 
     // ============ Constructor ============
 
@@ -46,14 +54,25 @@ contract CredentialTokenFactory is ICredentialTokenFactory, Ownable, ReentrancyG
     // ============ Admin Functions ============
 
     /**
-     * @dev Sets the PassiveTokenGenerator contract address
-     * @param generator_ The address of the PassiveTokenGenerator contract
+     * @dev Sets the FeeCollector contract address
+     * @param feeCollector_ The address of the FeeCollector contract
      * @notice Only callable by owner
      */
-    function setPassiveTokenGenerator(address generator_) external onlyOwner {
-        if (generator_ == address(0)) revert InvalidParameters("Generator cannot be zero address");
-        _passiveTokenGenerator = generator_;
-        emit PassiveTokenGeneratorSet(generator_);
+    function setFeeCollector(address feeCollector_) external onlyOwner {
+        if (feeCollector_ == address(0)) revert InvalidParameters("FeeCollector cannot be zero address");
+        _feeCollector = feeCollector_;
+        emit FeeCollectorSet(feeCollector_);
+    }
+
+    /**
+     * @dev Sets the USDC token contract address
+     * @param usdcToken_ The address of the USDC token contract
+     * @notice Only callable by owner
+     */
+    function setUSDCToken(address usdcToken_) external onlyOwner {
+        if (usdcToken_ == address(0)) revert InvalidParameters("USDC token cannot be zero address");
+        _usdcToken = IERC20(usdcToken_);
+        emit USDCTokenSet(usdcToken_);
     }
 
     /**
@@ -124,6 +143,14 @@ contract CredentialTokenFactory is ICredentialTokenFactory, Ownable, ReentrancyG
             revert NotCredentialOwner(credentialId, msg.sender);
         }
 
+        // Collect minting fee if FeeCollector is configured
+        if (_feeCollector != address(0) && address(_usdcToken) != address(0)) {
+            uint256 feeAmount = IFeeCollector(_feeCollector).collectMintingFee(credentialId, msg.sender);
+            if (feeAmount > 0) {
+                emit MintingFeeCollected(credentialId, msg.sender, feeAmount);
+            }
+        }
+
         // Create new CredentialToken
         CredentialToken token = new CredentialToken(
             credentialId,
@@ -137,9 +164,9 @@ contract CredentialTokenFactory is ICredentialTokenFactory, Ownable, ReentrancyG
 
         tokenAddress = address(token);
 
-        // Set up minter if PassiveTokenGenerator is configured
-        if (_passiveTokenGenerator != address(0)) {
-            token.setMinter(_passiveTokenGenerator);
+        // Set up minter if FeeCollector is configured
+        if (_feeCollector != address(0)) {
+            token.setMinter(_feeCollector);
         }
 
         // Update mappings
@@ -249,11 +276,19 @@ contract CredentialTokenFactory is ICredentialTokenFactory, Ownable, ReentrancyG
     // ============ View Functions ============
 
     /**
-     * @dev Returns the PassiveTokenGenerator contract address
-     * @return The address of the PassiveTokenGenerator
+     * @dev Returns the FeeCollector contract address
+     * @return The address of the FeeCollector
      */
-    function getPassiveTokenGenerator() external view returns (address) {
-        return _passiveTokenGenerator;
+    function getFeeCollector() external view returns (address) {
+        return _feeCollector;
+    }
+
+    /**
+     * @dev Returns the USDC token contract address
+     * @return The address of the USDC token
+     */
+    function getUSDCToken() external view returns (address) {
+        return address(_usdcToken);
     }
 
     /**

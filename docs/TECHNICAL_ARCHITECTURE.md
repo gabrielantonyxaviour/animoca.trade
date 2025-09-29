@@ -1,4 +1,4 @@
-# Technical Architecture - Credential Token Ecosystem
+# Technical Architecture - turn credentials into liquid markets
 
 ## System Overview
 
@@ -45,11 +45,11 @@ PoolFactory
 ├── Fee collection (0.25% to LPs, 0.05% to protocol)
 └── Pool discovery and management
 
-PassiveTokenGenerator
-├── Validates credential status via AIR
-├── Calculates emission based on time held + credential type
-├── Mints tokens directly to credential holders
-└── Rate limiting and anti-gaming measures
+VerificationFeeCollector
+├── Collects USDC fees from credential verification activities
+├── Distributes fees to token holders proportionally
+├── Integrates with credential minting and verification systems
+└── Batch processing and gas optimization
 
 ReputationOracle
 ├── Stores historical price data from all pools
@@ -87,17 +87,17 @@ ReputationOracle
 9. Frontend → Notification: Transaction confirmed
 ```
 
-#### Passive Token Generation Flow
+#### Verification Fee Distribution Flow
 ```
-1. Background Service → Credential Registry: Query active credentials
-2. Service → AIR API: Batch validate credential statuses
-3. Service → PassiveTokenGenerator: calculateEmission(credentialId, timeSinceLastClaim)
-4. Generator → Emission Logic: Apply rate multipliers and decay functions
-5. Generator → CredentialToken: mint(holderAddress, calculatedAmount)
-6. Token → Event: TokenMinted(holder, amount, credentialId, timestamp)
-7. Backend → Analytics: Update supply metrics
-8. Backend → Notification: Alert user of new tokens available
-9. Frontend → Portfolio Update: Show increased token balance
+1. User Action → Credential Verification: Triggers verification fee payment in USDC
+2. System → Fee Collection: Collect USDC verification fees
+3. Fee Collector → Token Registry: Query token holders and their shares
+4. Collector → Distribution Logic: Calculate proportional fee shares
+5. Collector → USDC Transfer: Distribute fees to token holders
+6. System → Event: FeeDistributed(token, amount, recipients, timestamp)
+7. Backend → Analytics: Update revenue metrics
+8. Backend → Notification: Alert users of fee earnings
+9. Frontend → Portfolio Update: Show increased USDC balance
 ```
 
 ## Frontend Architecture
@@ -108,11 +108,11 @@ src/
 ├── components/
 │   ├── issuance/CredentialIssuance.tsx        # Existing - unchanged
 │   ├── verification/CredentialVerification.tsx # Existing - unchanged
-│   ├── tokens/                                # New - Session 4
-│   │   ├── TokenDashboard.tsx                # Portfolio overview
+│   ├── credentials/                          # New - Session 4
+│   │   ├── CredentialMarkets.tsx             # Credential token marketplace
 │   │   ├── TokenCreationForm.tsx             # Create new tokens
 │   │   ├── TokenPortfolio.tsx                # Holdings management
-│   │   └── ClaimTokensInterface.tsx          # Claim generated tokens
+│   │   └── FeeClaimInterface.tsx             # Claim verification fee earnings
 │   ├── trading/                              # New - Session 5
 │   │   ├── SwapInterface.tsx                 # Token swapping
 │   │   ├── PoolManagement.tsx                # LP position management
@@ -133,11 +133,11 @@ src/
 ```typescript
 // App.tsx - Extended routing
 <Routes>
-  <Route path="/" element={<Navigate to="/issue" replace />} />
+  <Route path="/" element={<Navigate to="/" replace />} />     // Landing
   <Route path="/issue" element={<CredentialIssuance />} />      // Existing
   <Route path="/verify" element={<CredentialVerification />} /> // Existing
-  <Route path="/tokens" element={<TokenDashboard />} />         // New
-  <Route path="/tokens/create" element={<TokenCreationForm />} />// New
+  <Route path="/creds" element={<CredentialMarkets />} />       // New
+  <Route path="/creds/create" element={<TokenCreationForm />} />// New
   <Route path="/trade" element={<SwapInterface />} />           // New
   <Route path="/pools" element={<PoolManagement />} />          // New
   <Route path="/analytics" element={<MarketOverview />} />      // New
@@ -146,17 +146,19 @@ src/
 
 ### State Management Patterns
 ```typescript
-// Global state for token ecosystem
-interface TokenEcosystemState {
+// Global state for credential marketplace
+interface CredentialMarketplaceState {
   // User state
   userTokens: Token[];
   userLPPositions: LPPosition[];
-  claimableTokens: ClaimableToken[];
+  claimableFees: ClaimableFees[];    // USDC verification fees
+  usdcBalance: BigNumber;
 
   // Market state
   availableTokens: Token[];
-  tradingPairs: TradingPair[];
-  priceData: PriceData[];
+  tradingPairs: TradingPair[];       // All paired with USDC
+  priceData: PriceData[];            // USDC-denominated prices
+  verificationActivity: VerificationMetrics[];
 
   // UI state
   selectedToken: Token | null;
@@ -172,7 +174,8 @@ const TokenEcosystemProvider = ({ children }) => {
   const createToken = async (params: CreateTokenParams) => { /* ... */ };
   const swapTokens = async (params: SwapParams) => { /* ... */ };
   const addLiquidity = async (params: LiquidityParams) => { /* ... */ };
-  const claimTokens = async (credentialId: string) => { /* ... */ };
+  const claimFees = async (tokenAddress: string) => { /* ... */ };    // Claim USDC fees
+  const mintUSDC = async (amount: BigNumber) => { /* ... */ };         // Free mint mock USDC
 
   return (
     <TokenEcosystemContext.Provider value={{ state, actions }}>
@@ -225,22 +228,25 @@ services/
 PostgreSQL (Primary Database)
 ├── users                      # User profiles and preferences
 ├── tokens                     # Token metadata and configuration
-├── pools                      # AMM pool data and liquidity
+├── pools                      # AMM pool data and USDC liquidity
 ├── transactions               # Trading and liquidity transactions
 ├── reputation_scores          # Historical reputation data
+├── verification_fees          # USDC fee collection and distribution
 └── notifications              # Notification history and preferences
 
 Redis (Cache & Sessions)
-├── price_cache                # Real-time price data
+├── price_cache                # Real-time USDC price data
 ├── user_sessions              # Authentication sessions
 ├── rate_limits                # API rate limiting
+├── fee_distributions          # Pending USDC fee distributions
 └── job_queues                 # Background job processing
 
 Time-Series Database (Price Data)
-├── price_feeds                # Raw price data from pools
-├── volume_data                # Trading volume metrics
-├── liquidity_data             # Pool liquidity over time
-└── twap_calculations          # Time-weighted average prices
+├── price_feeds                # Raw USDC price data from pools
+├── volume_data                # USDC trading volume metrics
+├── liquidity_data             # USDC pool liquidity over time
+├── verification_metrics       # Verification activity and fees
+└── twap_calculations          # Time-weighted average USDC prices
 
 IPFS (Decentralized Storage)
 ├── token_metadata             # Token images and descriptions

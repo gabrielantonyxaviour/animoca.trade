@@ -13,6 +13,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { initializeMarketplace, getMarketplace } from '../../services/credential-marketplace';
 import type { EnvironmentConfig } from '../../config/environments';
 
 interface PoolManagementProps {
@@ -23,22 +24,24 @@ interface PoolManagementProps {
 }
 
 interface PoolData {
-  address: string;
+  credentialId: string;
   tokenAddress: string;
   tokenSymbol: string;
   tokenName: string;
   tokenDecimals: number;
-  reserve0: string;
-  reserve1: string;
-  totalSupply: string;
+  tokenReserves: string;
+  usdcReserves: string;
+  totalLiquidity: string;
   volume24h: string;
   fees24h: string;
   apy: number;
   tvl: string;
+  currentPrice: string;
   lpBalance?: string;
   lpValue?: string;
   shareOfPool?: number;
   feesEarned?: string;
+  rewardsEarned?: string;
 }
 
 export default function PoolManagement({
@@ -55,114 +58,118 @@ export default function PoolManagement({
   const [isLoading, setIsLoading] = useState(false);
   const [sortBy, setSortBy] = useState<'tvl' | 'volume' | 'apy'>('tvl');
 
+  // Marketplace service state
+  const [marketplace, setMarketplace] = useState<any>(null);
+
+  // Initialize marketplace service
   useEffect(() => {
-    if (isLoggedIn) {
+    const initMarketplace = async () => {
+      if (!airService || !isLoggedIn || !userAddress) return;
+
+      try {
+        const provider = new ethers.BrowserProvider(airService.provider);
+        const signer = await provider.getSigner();
+        const marketplaceInstance = initializeMarketplace(provider, signer, 5151);
+        setMarketplace(marketplaceInstance);
+      } catch (err) {
+        console.error("Failed to initialize marketplace:", err);
+      }
+    };
+
+    initMarketplace();
+  }, [airService, isLoggedIn, userAddress]);
+
+  useEffect(() => {
+    if (marketplace) {
       loadPools();
     }
-  }, [isLoggedIn, userAddress]);
+  }, [marketplace]);
 
   const loadPools = async () => {
-    if (!airService?.provider) return;
+    if (!marketplace) return;
 
     setIsLoading(true);
     try {
-      const provider = new ethers.BrowserProvider(airService.provider);
-      const factoryAddress = environmentConfig.contracts?.poolFactory;
-
-      if (!factoryAddress) {
-        console.error('Pool factory address not configured');
+      // Load created tokens from localStorage
+      const storedTokens = localStorage.getItem('created_tokens');
+      if (!storedTokens) {
+        setPools([]);
+        setMyPools([]);
         return;
       }
 
-      const factoryAbi = [
-        'function getAllPools() external view returns (address[])',
-        'function getPoolInfo(address pool) external view returns (address token, uint256 reserve0, uint256 reserve1)'
-      ];
-
-      const factory = new ethers.Contract(factoryAddress, factoryAbi, provider);
-      const poolAddresses = await factory.getAllPools();
-
+      const createdTokens = JSON.parse(storedTokens);
       const poolData: PoolData[] = [];
       const userPoolData: PoolData[] = [];
 
-      for (const poolAddress of poolAddresses) {
+      for (const token of createdTokens) {
         try {
-          const poolAbi = [
-            'function token0() view returns (address)',
-            'function getReserves() view returns (uint256 reserve0, uint256 reserve1, uint256 blockTimestampLast)',
-            'function totalSupply() view returns (uint256)',
-            'function balanceOf(address) view returns (uint256)',
-            'function kLast() view returns (uint256)',
-            'function price0CumulativeLast() view returns (uint256)',
-            'function price1CumulativeLast() view returns (uint256)'
-          ];
+          const credentialId = marketplace.stringToBytes32(token.credentialId);
+          const poolInfo = await marketplace.getPoolInfo(credentialId);
+          const tokenInfo = await marketplace.getTokenInfo(token.tokenAddress);
+          const currentPrice = await marketplace.getTokenPrice(credentialId);
 
-          const pool = new ethers.Contract(poolAddress, poolAbi, provider);
-          const [token0, reserves, totalSupply] = await Promise.all([
-            pool.token0(),
-            pool.getReserves(),
-            pool.totalSupply()
-          ]);
+          // Calculate TVL in USDC
+          const usdcReservesValue = parseFloat(marketplace.formatUSDC(poolInfo.usdcReserves));
+          const tvl = (usdcReservesValue * 2).toFixed(2); // Multiply by 2 for total liquidity
 
-          const tokenContract = new ethers.Contract(token0, [
-            'function symbol() view returns (string)',
-            'function name() view returns (string)',
-            'function decimals() view returns (uint8)'
-          ], provider);
-
-          const [symbol, name, decimals] = await Promise.all([
-            tokenContract.symbol(),
-            tokenContract.name(),
-            tokenContract.decimals()
-          ]);
-
-          const reserve0 = reserves[0];
-          const reserve1 = reserves[1];
-
-          const ethValue = Number(ethers.formatEther(reserve1));
-          const tvl = (ethValue * 2).toFixed(2);
-
+          // Mock volume and fees data
           const volume24h = (Math.random() * 50000).toFixed(2);
           const fees24h = (parseFloat(volume24h) * 0.003).toFixed(2);
-          const apy = tvl !== '0' ? ((parseFloat(fees24h) * 365 / parseFloat(tvl)) * 100) : 0;
+          const apy = parseFloat(tvl) > 0 ? ((parseFloat(fees24h) * 365 / parseFloat(tvl)) * 100) : 0;
 
-          const poolInfo: PoolData = {
-            address: poolAddress,
-            tokenAddress: token0,
-            tokenSymbol: symbol,
-            tokenName: name,
-            tokenDecimals: decimals,
-            reserve0: reserve0.toString(),
-            reserve1: reserve1.toString(),
-            totalSupply: totalSupply.toString(),
+          const poolDataItem: PoolData = {
+            credentialId: token.credentialId,
+            tokenAddress: token.tokenAddress,
+            tokenSymbol: token.tokenSymbol,
+            tokenName: token.tokenName,
+            tokenDecimals: 18,
+            tokenReserves: poolInfo.tokenReserves.toString(),
+            usdcReserves: poolInfo.usdcReserves.toString(),
+            totalLiquidity: poolInfo.totalLiquidity.toString(),
             volume24h,
             fees24h,
             apy,
-            tvl
+            tvl,
+            currentPrice: marketplace.formatUSDC(currentPrice)
           };
 
+          // Check if user has liquidity in this pool
           if (userAddress) {
-            const lpBalance = await pool.balanceOf(userAddress);
-            if (lpBalance > 0n) {
-              const userShare = Number(ethers.formatEther(lpBalance)) / Number(ethers.formatEther(totalSupply));
-              const lpValue = (userShare * parseFloat(tvl)).toFixed(2);
-              const feesEarned = (userShare * parseFloat(fees24h)).toFixed(2);
+            try {
+              // For simplicity, we'll check if the user has any tokens of this credential
+              // In a real implementation, you'd check LP token balance
+              const tokenContract = new ethers.Contract(token.tokenAddress, ['function balanceOf(address) view returns (uint256)'], marketplace.provider);
+              const balance = await tokenContract.balanceOf(userAddress);
 
-              const userPoolInfo = {
-                ...poolInfo,
-                lpBalance: ethers.formatEther(lpBalance),
-                lpValue,
-                shareOfPool: userShare * 100,
-                feesEarned
-              };
+              if (balance > 0n) {
+                const tokenBalance = parseFloat(marketplace.formatTokens(balance));
+                const price = parseFloat(marketplace.formatUSDC(currentPrice));
+                const lpValue = (tokenBalance * price).toFixed(2);
 
-              userPoolData.push(userPoolInfo);
+                // Check for pending rewards
+                const pendingRewards = await marketplace.getPendingRewards(credentialId, userAddress);
+                const rewardsEarned = marketplace.formatUSDC(pendingRewards);
+
+                const userPoolInfo = {
+                  ...poolDataItem,
+                  lpBalance: tokenBalance.toString(),
+                  lpValue,
+                  shareOfPool: (tokenBalance / parseFloat(marketplace.formatTokens(poolInfo.tokenReserves))) * 100,
+                  feesEarned: (parseFloat(rewardsEarned) * 0.5).toFixed(2), // Mock fee share
+                  rewardsEarned
+                };
+
+                userPoolData.push(userPoolInfo);
+              }
+            } catch (err) {
+              console.error(`Error checking user balance for ${token.tokenAddress}:`, err);
             }
           }
 
-          poolData.push(poolInfo);
+          poolData.push(poolDataItem);
         } catch (error) {
-          console.error('Error loading pool data:', error);
+          console.error('Error loading pool data for token:', token.credentialId, error);
         }
       }
 
@@ -228,7 +235,7 @@ export default function PoolManagement({
           </div>
           <div>
             <p className="text-muted-foreground text-xs">APY</p>
-            <p className="font-medium text-green-500">{pool.apy.toFixed(2)}%</p>
+            <p className="font-medium text-pink-500">{pool.apy.toFixed(2)}%</p>
           </div>
         </div>
 
@@ -244,7 +251,7 @@ export default function PoolManagement({
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Fees Earned (24h)</span>
-              <span className="text-green-500">+${pool.feesEarned}</span>
+              <span className="text-pink-500">+${pool.feesEarned}</span>
             </div>
           </div>
         )}
@@ -305,7 +312,7 @@ export default function PoolManagement({
           <CardContent>
             <div className="flex items-center justify-between">
               <p className="text-2xl font-bold">${totalVolume24h.toFixed(2)}</p>
-              <TrendingUp className="h-5 w-5 text-green-500" />
+              <TrendingUp className="h-5 w-5 text-pink-500" />
             </div>
             <p className="text-xs text-muted-foreground mt-1">Trading activity</p>
           </CardContent>
@@ -318,7 +325,7 @@ export default function PoolManagement({
           <CardContent>
             <div className="flex items-center justify-between">
               <p className="text-2xl font-bold">${myTotalValue.toFixed(2)}</p>
-              <Droplets className="h-5 w-5 text-blue-500" />
+              <Droplets className="h-5 w-5 text-pink-500" />
             </div>
             <p className="text-xs text-muted-foreground mt-1">In {myPools.length} pools</p>
           </CardContent>

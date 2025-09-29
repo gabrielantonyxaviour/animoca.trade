@@ -228,7 +228,7 @@ const ClaimTokensInterface: React.FC<ClaimTokensInterfaceProps> = ({
           </div>
           <Button
             variant="outline"
-            onClick={() => navigate("/tokens")}
+            onClick={() => navigate("/creds")}
           >
             Back to Dashboard
           </Button>

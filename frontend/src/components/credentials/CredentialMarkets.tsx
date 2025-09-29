@@ -1,13 +1,13 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { AirService } from "@mocanetwork/airkit";
+import { ethers } from "ethers";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { RefreshCw } from "lucide-react";
-import { usePassiveTokens } from "@/hooks/contracts/useTokenContracts";
-import { useRealTimePrices } from "@/hooks/useRealTimePrices";
+import { initializeMarketplace, getMarketplace } from "@/services/credential-marketplace";
 
 interface CredentialMarketsProps {
   airService: AirService | null;
@@ -28,6 +28,29 @@ interface Credential {
   marketCap?: number;
   volume24h?: number;
   description?: string;
+  emoji?: string;
+  nftImage?: string;
+  logoImage?: string;
+}
+
+interface CreatedToken {
+  credentialId: string;
+  credentialName: string;
+  credentialPlatform: string;
+  tokenName: string;
+  tokenSymbol: string;
+  tokenAddress: string;
+  emissionRate: number;
+  maxSupply: number;
+  initialLiquidity: {
+    tokenAmount: number;
+    usdcAmount: number;
+  };
+  createdAt: string;
+  description?: string;
+  emoji?: string;
+  nftImage?: string;
+  logoImage?: string;
 }
 
 const CredentialMarkets: React.FC<CredentialMarketsProps> = ({
@@ -42,65 +65,41 @@ const CredentialMarkets: React.FC<CredentialMarketsProps> = ({
   const [totalValue, setTotalValue] = useState(0);
   const [totalClaimable, setTotalClaimable] = useState(0);
 
-  const { claimableTokens, fetchClaimableTokens } = usePassiveTokens(userAddress);
-  const { prices, isLoading: isPricesLoading, refreshPrices } = useRealTimePrices();
+  // Marketplace service states
+  const [marketplace, setMarketplace] = useState<any>(null);
+  const [prices, setPrices] = useState<Map<string, any>>(new Map());
+  const [isPricesLoading, setIsPricesLoading] = useState(false);
+  const [userBalances, setUserBalances] = useState<Map<string, bigint>>(new Map());
 
-  // Get real-time price data and merge with credentials
+  // Load created tokens from localStorage and merge with price data
   const getCredentialsWithPrices = (): Credential[] => {
-    const baseCredentials = [
-      {
-        id: "edu-001",
-        name: "Computer Science Degree",
-        issuer: "MIT",
-        type: "Education",
-        verificationStatus: "verified" as const,
-        hasToken: true,
-        tokenAddress: "0x123...",
-        description: "Bachelor's degree in Computer Science from MIT"
-      },
-      {
-        id: "prof-002",
-        name: "Senior Developer Certification",
-        issuer: "TechCorp",
-        type: "Professional",
-        verificationStatus: "verified" as const,
-        hasToken: true,
-        tokenAddress: "0x456...",
-        description: "Senior-level software development certification"
-      },
-      {
-        id: "id-003",
-        name: "Identity Verification",
-        issuer: "GovID",
-        type: "Identity",
-        verificationStatus: "verified" as const,
-        hasToken: false,
-        description: "Government-issued identity verification"
-      },
-      {
-        id: "skill-004",
-        name: "Blockchain Expert Badge",
-        issuer: "CryptoAcademy",
-        type: "Skill",
-        verificationStatus: "verified" as const,
-        hasToken: true,
-        tokenAddress: "0xabc...",
-        description: "Advanced blockchain development skills certification"
-      },
-      {
-        id: "health-005",
-        name: "Vaccination Record",
-        issuer: "HealthAuth",
-        type: "Health",
-        verificationStatus: "verified" as const,
-        hasToken: false,
-        description: "Complete vaccination record verification"
-      }
-    ];
+    // Load created tokens from localStorage
+    const storedTokens = localStorage.getItem('created_tokens');
+    if (!storedTokens) {
+      return []; // No tokens created yet
+    }
 
-    return baseCredentials.map(credential => {
-      if (credential.hasToken && credential.tokenAddress) {
-        const priceData = prices.get(credential.tokenAddress);
+    try {
+      const createdTokens: CreatedToken[] = JSON.parse(storedTokens);
+
+      // Convert created tokens to credential format
+      return createdTokens.map(token => {
+        const credential: Credential = {
+          id: token.credentialId,
+          name: token.credentialName,
+          issuer: token.credentialPlatform,
+          type: "Trading",
+          verificationStatus: "verified" as const,
+          hasToken: true,
+          tokenAddress: token.tokenAddress,
+          description: token.description || `Token for ${token.credentialName}`,
+          emoji: token.emoji,
+          nftImage: token.nftImage,
+          logoImage: token.logoImage,
+        };
+
+        // Add price data if available
+        const priceData = prices.get(token.tokenAddress);
         if (priceData) {
           return {
             ...credential,
@@ -110,53 +109,166 @@ const CredentialMarkets: React.FC<CredentialMarketsProps> = ({
             volume24h: priceData.volume24h,
           };
         }
-      }
-      return credential;
-    });
+
+        // Generate mock price data for created tokens
+        return {
+          ...credential,
+          currentPrice: 0.5 + Math.random() * 5, // Random price between 0.5-5.5
+          priceChange24h: (Math.random() - 0.5) * 20, // Random change between -10% to +10%
+          marketCap: 50000 + Math.random() * 500000, // Random market cap
+          volume24h: 10000 + Math.random() * 100000, // Random volume
+        };
+      });
+    } catch (error) {
+      console.error('Error parsing created tokens:', error);
+      return [];
+    }
   };
 
-  // Update credentials whenever prices change
+  // Initialize marketplace service
   useEffect(() => {
-    const credentialsWithPrices = getCredentialsWithPrices();
-    setUserCredentials(credentialsWithPrices);
-  }, [prices]);
-
-  // Fetch claimable tokens when component mounts
-  useEffect(() => {
-    const loadClaimableTokens = async () => {
-      if (!airService || !isLoggedIn) return;
+    const initMarketplace = async () => {
+      if (!airService || !isLoggedIn || !userAddress) return;
 
       try {
-        const credentialIds = getCredentialsWithPrices().map((cred) => cred.id);
-        await fetchClaimableTokens(credentialIds);
+        const provider = new ethers.BrowserProvider(airService.provider);
+        const signer = await provider.getSigner();
+        const marketplaceInstance = initializeMarketplace(provider, signer, 5151);
+        setMarketplace(marketplaceInstance);
       } catch (err) {
-        console.error("Error fetching claimable tokens:", err);
+        console.error("Failed to initialize marketplace:", err);
       }
     };
 
-    loadClaimableTokens();
-  }, [airService, isLoggedIn]);
+    initMarketplace();
+  }, [airService, isLoggedIn, userAddress]);
 
-  // Calculate total portfolio value
+  // Fetch real prices from marketplace
+  const refreshPrices = async () => {
+    if (!marketplace) return;
+
+    setIsPricesLoading(true);
+    try {
+      const storedTokens = localStorage.getItem('created_tokens');
+      if (!storedTokens) return;
+
+      const createdTokens: CreatedToken[] = JSON.parse(storedTokens);
+      const newPrices = new Map();
+
+      for (const token of createdTokens) {
+        try {
+          const credentialId = marketplace.stringToBytes32(token.credentialId);
+          const poolInfo = await marketplace.getPoolInfo(credentialId);
+          const price = await marketplace.getTokenPrice(credentialId);
+
+          newPrices.set(token.tokenAddress, {
+            price: parseFloat(marketplace.formatUSDC(price)),
+            marketCap: parseFloat(marketplace.formatTokens(poolInfo.tokenReserves)) * parseFloat(marketplace.formatUSDC(price)),
+            volume24h: Math.random() * 10000, // Mock volume for now
+            priceChange24h: (Math.random() - 0.5) * 20, // Mock price change
+          });
+        } catch (err) {
+          console.error(`Error fetching price for ${token.tokenAddress}:`, err);
+          // Fallback to mock data
+          newPrices.set(token.tokenAddress, {
+            price: 0.5 + Math.random() * 5,
+            marketCap: 50000 + Math.random() * 500000,
+            volume24h: 10000 + Math.random() * 100000,
+            priceChange24h: (Math.random() - 0.5) * 20,
+          });
+        }
+      }
+
+      setPrices(newPrices);
+    } catch (err) {
+      console.error("Error refreshing prices:", err);
+    } finally {
+      setIsPricesLoading(false);
+    }
+  };
+
+  // Fetch user token balances
+  const fetchUserBalances = async () => {
+    if (!marketplace || !userAddress) return;
+
+    const storedTokens = localStorage.getItem('created_tokens');
+    if (!storedTokens) return;
+
+    try {
+      const createdTokens: CreatedToken[] = JSON.parse(storedTokens);
+      const newBalances = new Map();
+
+      for (const token of createdTokens) {
+        try {
+          const tokenInfo = await marketplace.getTokenInfo(token.tokenAddress);
+          const provider = marketplace.provider;
+          const tokenContract = new ethers.Contract(token.tokenAddress, ['function balanceOf(address) view returns (uint256)'], provider);
+          const balance = await tokenContract.balanceOf(userAddress);
+          newBalances.set(token.tokenAddress, balance);
+        } catch (err) {
+          console.error(`Error fetching balance for ${token.tokenAddress}:`, err);
+          newBalances.set(token.tokenAddress, BigInt(0));
+        }
+      }
+
+      setUserBalances(newBalances);
+    } catch (err) {
+      console.error("Error fetching user balances:", err);
+    }
+  };
+
+  // Update credentials whenever prices change or on component mount
+  useEffect(() => {
+    const loadCredentials = () => {
+      const credentialsWithPrices = getCredentialsWithPrices();
+      setUserCredentials(credentialsWithPrices);
+    };
+
+    loadCredentials();
+
+    // Listen for localStorage changes (when tokens are created)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'created_tokens') {
+        loadCredentials();
+      }
+    };
+
+    // Listen for custom events when tokens are created in the same tab
+    const handleTokenCreated = () => {
+      loadCredentials();
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('tokenCreated', handleTokenCreated);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('tokenCreated', handleTokenCreated);
+    };
+  }, [prices]);
+
+  // Fetch prices and balances when marketplace is ready
+  useEffect(() => {
+    if (marketplace) {
+      refreshPrices();
+      fetchUserBalances();
+    }
+  }, [marketplace]);
+
+  // Calculate total portfolio value using real balances
   useEffect(() => {
     let total = 0;
     userCredentials.forEach((cred) => {
-      if (cred.hasToken && cred.currentPrice) {
-        // Assume user holds some amount - this would come from contract balance
-        total += cred.currentPrice * 100; // Mock holding of 100 tokens
+      if (cred.hasToken && cred.currentPrice && cred.tokenAddress) {
+        const balance = userBalances.get(cred.tokenAddress);
+        if (balance && marketplace) {
+          const tokenAmount = parseFloat(marketplace.formatTokens(balance));
+          total += cred.currentPrice * tokenAmount;
+        }
       }
     });
     setTotalValue(total);
-  }, [userCredentials]);
-
-  // Calculate total claimable value
-  useEffect(() => {
-    let total = 0;
-    claimableTokens.forEach((amount) => {
-      total += Number(amount) / 1e18;
-    });
-    setTotalClaimable(total);
-  }, [claimableTokens]);
+  }, [userCredentials, userBalances, marketplace]);
 
   const filteredCredentials = userCredentials.filter((cred) => {
     const matchesSearch =
@@ -362,12 +474,20 @@ const CredentialMarkets: React.FC<CredentialMarketsProps> = ({
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
-              <h3 className="text-lg font-semibold mb-2">No credentials found</h3>
+              <h3 className="text-lg font-semibold mb-2">No tokens created yet</h3>
               <p className="text-muted-foreground mb-6">
                 {searchQuery
                   ? "Try adjusting your search terms"
-                  : "Connect your wallet and verify credentials to get started"}
+                  : "Create tokens from your verified credentials to start trading"}
               </p>
+              {!searchQuery && (
+                <Button
+                  onClick={() => navigate("/creds/create")}
+                  className="bg-brand-600 hover:bg-brand-700"
+                >
+                  Create Your First Token
+                </Button>
+              )}
             </CardContent>
           </Card>
         ) : (

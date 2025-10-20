@@ -33,7 +33,11 @@ export const mocaDevnet = defineChain({
 export const wagmiConfig = createConfig({
   chains: [mocaDevnet],
   transports: {
-    [mocaDevnet.id]: http(),
+    [mocaDevnet.id]: http('https://devnet-rpc.mocachain.org', {
+      timeout: 30_000, // 30 second timeout
+      retryCount: 3,
+      retryDelay: 1000,
+    }),
   },
   connectors: [
     airConnector({

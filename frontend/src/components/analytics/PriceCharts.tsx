@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { createChart, ColorType, type IChartApi, type ISeriesApi } from 'lightweight-charts';
+import { createChart, ColorType, type IChartApi, type ISeriesApi, LineSeries, CandlestickSeries, HistogramSeries } from 'lightweight-charts';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
@@ -50,16 +50,22 @@ export default function PriceCharts({
 
   useEffect(() => {
     console.log('Chart component mounted, container ref:', chartContainerRef.current);
-    if (chartContainerRef.current && !chartRef.current) {
-      console.log('Initializing chart...');
-      initializeChart();
-    }
 
-    // Load data immediately
-    console.log('Loading price data...');
-    loadPriceData();
+    // Use a timeout to ensure DOM is ready
+    const timeout = setTimeout(() => {
+      console.log('Timeout - checking container again:', chartContainerRef.current);
+      if (chartContainerRef.current && !chartRef.current) {
+        console.log('Initializing chart...');
+        initializeChart();
+      }
+
+      // Load data immediately
+      console.log('Loading price data...');
+      loadPriceData();
+    }, 100);
 
     return () => {
+      clearTimeout(timeout);
       if (chartRef.current) {
         chartRef.current.remove();
         chartRef.current = null;
@@ -90,29 +96,35 @@ export default function PriceCharts({
     }
 
     console.log('Creating chart...');
-    chartRef.current = createChart(chartContainerRef.current, {
-      width: chartContainerRef.current.clientWidth,
-      height: 400,
-      layout: {
-        background: { type: ColorType.Solid, color: 'transparent' },
-        textColor: 'hsl(var(--foreground))',
-      },
-      grid: {
-        vertLines: { color: 'hsl(var(--border))', style: 1 },
-        horzLines: { color: 'hsl(var(--border))', style: 1 },
-      },
-      crosshair: {
-        mode: 1,
-      },
-      rightPriceScale: {
-        borderColor: 'hsl(var(--border))',
-      },
-      timeScale: {
-        borderColor: 'hsl(var(--border))',
-        timeVisible: true,
-        secondsVisible: false,
-      },
-    });
+    try {
+      chartRef.current = createChart(chartContainerRef.current, {
+        width: chartContainerRef.current.clientWidth,
+        height: 400,
+        layout: {
+          background: { type: ColorType.Solid, color: '#000000' },
+          textColor: '#ffffff',
+        },
+        grid: {
+          vertLines: { color: '#333333', style: 1 },
+          horzLines: { color: '#333333', style: 1 },
+        },
+        crosshair: {
+          mode: 1,
+        },
+        rightPriceScale: {
+          borderColor: '#333333',
+          textColor: '#ffffff',
+        },
+        timeScale: {
+          borderColor: '#333333',
+          timeVisible: true,
+          secondsVisible: false,
+        },
+      });
+      console.log('Chart created successfully:', chartRef.current);
+    } catch (error) {
+      console.error('Error creating chart:', error);
+    }
 
     // Handle resize
     const handleResize = () => {
@@ -128,58 +140,81 @@ export default function PriceCharts({
   };
 
   const updateChart = () => {
-    if (!chartRef.current) return;
+    console.log('updateChart called, chartRef:', chartRef.current, 'priceData length:', priceData.length, 'candleData length:', candleData.length);
+    if (!chartRef.current) {
+      console.log('No chart ref, returning');
+      return;
+    }
 
     // Clear existing series
-    if (lineSeriesRef.current) {
-      chartRef.current.removeSeries(lineSeriesRef.current);
-      lineSeriesRef.current = null;
-    }
-    if (candleSeriesRef.current) {
-      chartRef.current.removeSeries(candleSeriesRef.current);
-      candleSeriesRef.current = null;
-    }
-    if (volumeSeriesRef.current) {
-      chartRef.current.removeSeries(volumeSeriesRef.current);
-      volumeSeriesRef.current = null;
+    try {
+      if (lineSeriesRef.current) {
+        chartRef.current.removeSeries(lineSeriesRef.current);
+        lineSeriesRef.current = null;
+      }
+      if (candleSeriesRef.current) {
+        chartRef.current.removeSeries(candleSeriesRef.current);
+        candleSeriesRef.current = null;
+      }
+      if (volumeSeriesRef.current) {
+        chartRef.current.removeSeries(volumeSeriesRef.current);
+        volumeSeriesRef.current = null;
+      }
+    } catch (error) {
+      console.error('Error removing series:', error);
     }
 
+    console.log('Chart type:', chartType, 'priceData.length:', priceData.length, 'candleData.length:', candleData.length);
+
     if (chartType === 'line' && priceData.length > 0) {
-      lineSeriesRef.current = (chartRef.current as any).addLineSeries({
-        color: '#2563eb',
-        lineWidth: 2,
-        priceScaleId: 'right',
-      });
-      if (lineSeriesRef.current) {
-        lineSeriesRef.current.setData(priceData as any);
+      console.log('Creating line series with data:', priceData);
+      try {
+        lineSeriesRef.current = chartRef.current.addSeries(LineSeries, {
+          color: '#3b82f6',
+          lineWidth: 2,
+          priceScaleId: 'right',
+        });
+        if (lineSeriesRef.current) {
+          lineSeriesRef.current.setData(priceData as any);
+          console.log('Line series data set');
+        }
+      } catch (error) {
+        console.error('Error adding line series:', error);
       }
     } else if (chartType === 'candle' && candleData.length > 0) {
-      candleSeriesRef.current = (chartRef.current as any).addCandlestickSeries({
-        upColor: '#22c55e',
-        downColor: '#ef4444',
-        borderVisible: false,
-        wickUpColor: '#22c55e',
-        wickDownColor: '#ef4444',
-        priceScaleId: 'right',
-      });
-      if (candleSeriesRef.current) {
-        candleSeriesRef.current.setData(candleData as any);
+      console.log('Creating candle series with data:', candleData);
+      try {
+        candleSeriesRef.current = chartRef.current.addSeries(CandlestickSeries, {
+          upColor: '#22c55e',
+          downColor: '#ef4444',
+          borderVisible: false,
+          wickUpColor: '#22c55e',
+          wickDownColor: '#ef4444',
+          priceScaleId: 'right',
+        });
+        if (candleSeriesRef.current) {
+          candleSeriesRef.current.setData(candleData as any);
+          console.log('Candle series data set');
+        }
+      } catch (error) {
+        console.error('Error adding candle series:', error);
       }
     }
 
     // Add volume
     if (volumeData.length > 0) {
-      volumeSeriesRef.current = (chartRef.current as any).addHistogramSeries({
-        color: '#6b7280',
-        priceFormat: { type: 'volume' },
-        priceScaleId: 'left',
-        scaleMargins: {
-          top: 0.8,
-          bottom: 0,
-        },
-      });
-      if (volumeSeriesRef.current) {
-        volumeSeriesRef.current.setData(volumeData as any);
+      try {
+        volumeSeriesRef.current = chartRef.current.addSeries(HistogramSeries, {
+          color: '#9ca3af',
+          priceFormat: { type: 'volume' },
+          priceScaleId: 'left',
+        });
+        if (volumeSeriesRef.current) {
+          volumeSeriesRef.current.setData(volumeData as any);
+          console.log('Volume series data set');
+        }
+      } catch (error) {
+        console.error('Error adding volume series:', error);
       }
     }
 
@@ -254,18 +289,18 @@ export default function PriceCharts({
       let cumulativeVolume = 0;
 
       for (let i = 0; i < Math.min(dataPoints, staticCandleData.length); i++) {
-        const time = new Date(now.getTime() - (dataPoints - i) * interval);
-        const timeString = time.toISOString().split('T')[0];
+        // Create unique timestamps in ascending order
+        const timestamp = Math.floor((now.getTime() - (dataPoints - i - 1) * interval) / 1000);
 
         const candle = staticCandleData[i % staticCandleData.length];
 
         points.push({
-          time: timeString,
+          time: timestamp as any,
           value: candle.close,
         });
 
         candles.push({
-          time: timeString,
+          time: timestamp as any,
           open: candle.open,
           high: candle.high,
           low: candle.low,
@@ -274,12 +309,14 @@ export default function PriceCharts({
 
         cumulativeVolume += candle.volume;
         volumes.push({
-          time: timeString,
+          time: timestamp as any,
           value: candle.volume,
         });
       }
 
       console.log('Setting data - points:', points.length, 'candles:', candles.length, 'volumes:', volumes.length);
+      console.log('First few timestamps:', points.slice(0, 5).map(p => p.time));
+      console.log('Last few timestamps:', points.slice(-5).map(p => p.time));
       setPriceData(points);
       setCandleData(candles);
       setVolumeData(volumes);
@@ -375,7 +412,17 @@ export default function PriceCharts({
           </div>
         ) : (
           <>
-            <div ref={chartContainerRef} className="w-full h-96 mb-4" />
+            <div
+              ref={chartContainerRef}
+              className="w-full h-96 mb-4 border border-gray-600 bg-black rounded-lg"
+              style={{ minHeight: '400px' }}
+            >
+              {!chartRef.current && (
+                <div className="flex items-center justify-center h-full text-gray-400">
+                  Chart container ready, initializing...
+                </div>
+              )}
+            </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-muted rounded-lg">
               <div>

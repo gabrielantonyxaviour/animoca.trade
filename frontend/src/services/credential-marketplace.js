@@ -175,6 +175,19 @@ class CredentialMarketplace {
   async buyTokens(credentialId, usdcAmount, slippageTolerance = 0.005, deadline = null) {
     if (!this.signer) throw new Error('Signer required for this operation');
 
+    // TEMPORARY: Just mint some test USDC to see a transaction go through
+    // This bypasses the actual token trading since the token doesn't exist yet
+    console.log(`Mock buy operation: minting ${usdcAmount} USDC instead of buying tokens`);
+
+    // Mint some test USDC (convert the usdcAmount to a reasonable test amount)
+    const testMintAmount = Math.min(parseFloat(this.formatUSDC(usdcAmount)) || 10, 100);
+    const receipt = await this.mintTestUSDC(testMintAmount);
+
+    console.log('Test transaction completed:', receipt.transactionHash);
+    return receipt;
+
+    // ORIGINAL CODE (commented out until token exists):
+    /*
     // Convert credentialId to bytes32 if it's a string
     const credentialIdBytes32 = typeof credentialId === 'string' && !credentialId.startsWith('0x')
       ? this.stringToBytes32(credentialId)
@@ -199,6 +212,7 @@ class CredentialMarketplace {
     );
 
     return await tx.wait();
+    */
   }
 
   async sellTokens(credentialId, tokenAmount, slippageTolerance = 0.005, deadline = null) {

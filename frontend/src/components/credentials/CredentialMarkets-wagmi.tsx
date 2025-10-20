@@ -1,21 +1,22 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useAccount } from "wagmi";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, TrendingUp, DollarSign, Users, Activity } from "lucide-react";
+import { Plus, TrendingUp, DollarSign, Users, Activity, CheckCircle } from "lucide-react";
 import { useRealTimePrices } from "@/hooks/useRealTimePrices";
 
 const CredentialMarkets: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { isConnected } = useAccount();
   const { prices } = useRealTimePrices();
 
-
   const [createdTokens, setCreatedTokens] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState("all");
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
 
   // Mock market data
   const mockMarkets = [
@@ -33,6 +34,7 @@ const CredentialMarkets: React.FC = () => {
       type: 'Education',
       tokenAddress: '0x123...',
       verified: true,
+      isNew: false,
     },
     {
       id: 'prof-002',
@@ -48,6 +50,7 @@ const CredentialMarkets: React.FC = () => {
       type: 'Professional',
       tokenAddress: '0x456...',
       verified: true,
+      isNew: false,
     },
     {
       id: 'skill-004',
@@ -63,6 +66,7 @@ const CredentialMarkets: React.FC = () => {
       type: 'Skill',
       tokenAddress: '0xabc...',
       verified: true,
+      isNew: false,
     },
   ];
 
@@ -91,25 +95,52 @@ const CredentialMarkets: React.FC = () => {
     return () => window.removeEventListener('tokenCreated', handleTokenCreated);
   }, []);
 
-  const allMarkets = [...mockMarkets, ...createdTokens.map(token => ({
-    id: token.credentialId,
-    name: token.tokenName,
-    issuer: token.credentialPlatform,
-    symbol: token.tokenSymbol,
-    price: Math.random() * 0.2 + 0.01, // Random price for demo
-    change24h: (Math.random() - 0.5) * 30, // Random change for demo
-    volume24h: Math.floor(Math.random() * 5000) + 100,
-    marketCap: Math.floor(Math.random() * 100000) + 10000,
-    holders: Math.floor(Math.random() * 100) + 5,
-    description: token.description || `${token.tokenName} trading token`,
-    type: 'Custom',
-    tokenAddress: token.tokenAddress,
-    verified: true,
-  }))];
+  // Handle success message from navigation state
+  useEffect(() => {
+    if (location.state?.message) {
+      setShowSuccessMessage(true);
+      // Clear the message after 5 seconds
+      const timer = setTimeout(() => {
+        setShowSuccessMessage(false);
+      }, 5000);
+      // Clear the navigation state to prevent message from showing again on refresh
+      window.history.replaceState({}, document.title);
+      return () => clearTimeout(timer);
+    }
+  }, [location.state]);
 
-  const filteredMarkets = activeTab === "all"
+  const allMarkets = [...mockMarkets, ...createdTokens.map(token => {
+    // Check if token was created recently (within 5 minutes)
+    const createdAt = new Date(token.createdAt);
+    const isRecentlyCreated = Date.now() - createdAt.getTime() < 5 * 60 * 1000;
+
+    return {
+      id: token.credentialId,
+      name: token.tokenName,
+      issuer: token.credentialPlatform,
+      symbol: token.tokenSymbol,
+      price: Math.random() * 0.2 + 0.01, // Random price for demo
+      change24h: (Math.random() - 0.5) * 30, // Random change for demo
+      volume24h: Math.floor(Math.random() * 5000) + 100,
+      marketCap: Math.floor(Math.random() * 100000) + 10000,
+      holders: Math.floor(Math.random() * 100) + 5,
+      description: token.description || `${token.tokenName} trading token`,
+      type: 'Custom',
+      tokenAddress: token.tokenAddress,
+      verified: true,
+      isNew: isRecentlyCreated,
+    };
+  })];
+
+  const filteredMarkets = (activeTab === "all"
     ? allMarkets
-    : allMarkets.filter(market => market.type.toLowerCase() === activeTab);
+    : allMarkets.filter(market => market.type.toLowerCase() === activeTab)
+  ).sort((a, b) => {
+    // Sort by isNew first (new tokens appear at top), then by name
+    if (a.isNew && !b.isNew) return -1;
+    if (!a.isNew && b.isNew) return 1;
+    return a.name.localeCompare(b.name);
+  });
 
   const totalMarketCap = allMarkets.reduce((sum, market) => sum + market.marketCap, 0);
   const totalVolume24h = allMarkets.reduce((sum, market) => sum + market.volume24h, 0);
@@ -151,6 +182,29 @@ const CredentialMarkets: React.FC = () => {
             Create Token
           </Button>
         </div>
+
+        {/* Success Message */}
+        {showSuccessMessage && (
+          <Card className="border-green-200 bg-green-50">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <CheckCircle className="w-5 h-5 text-green-600" />
+                <div className="flex-1">
+                  <p className="text-green-800 font-medium">{location.state?.message || 'Token created successfully!'}</p>
+                  <p className="text-green-700 text-sm">Your new token should appear in the markets below.</p>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowSuccessMessage(false)}
+                  className="text-green-600 hover:text-green-800"
+                >
+                  ✕
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Market Overview Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -259,7 +313,9 @@ const CredentialMarkets: React.FC = () => {
                       return (
                         <div
                           key={market.id}
-                          className="grid grid-cols-1 md:grid-cols-8 gap-4 p-4 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
+                          className={`grid grid-cols-1 md:grid-cols-8 gap-4 p-4 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer ${
+                            market.isNew ? 'border-blue-200 bg-blue-50/50' : ''
+                          }`}
                           onClick={() => navigate(`/creds/${market.id}`)}
                         >
                           {/* Credential Info */}
@@ -269,6 +325,11 @@ const CredentialMarkets: React.FC = () => {
                               {market.verified && (
                                 <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
                                   ✓ Verified
+                                </Badge>
+                              )}
+                              {market.isNew && (
+                                <Badge className="text-xs bg-blue-600 text-white animate-pulse">
+                                  NEW
                                 </Badge>
                               )}
                             </div>

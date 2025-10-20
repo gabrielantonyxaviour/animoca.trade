@@ -123,22 +123,38 @@ const UsdcMintDialog = ({
 
       console.log("About to call balanceOf...");
 
-      // Add timeout to prevent hanging
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Balance request timeout after 10 seconds')), 10000)
-      );
+      // Retry up to 3 times with timeout
+      let lastError;
+      let balance = 0;
 
-      const balanceWei = await Promise.race([
-        usdcContract.balanceOf(userAddress),
-        timeoutPromise
-      ]);
+      for (let i = 0; i < 3; i++) {
+        try {
+          // Add timeout to prevent hanging
+          const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Balance request timeout after 30 seconds')), 30000)
+          );
 
-      console.log("Balance wei:", balanceWei.toString());
+          const balanceWei = await Promise.race([
+            usdcContract.balanceOf(userAddress),
+            timeoutPromise
+          ]);
 
-      const balance = parseFloat(ethers.formatUnits(balanceWei, 6)); // USDC has 6 decimals
-      console.log("Formatted balance:", balance);
+          console.log("Balance wei:", balanceWei.toString());
 
-      setCurrentBalance(balance);
+          balance = parseFloat(ethers.formatUnits(balanceWei, 6)); // USDC has 6 decimals
+          console.log("Formatted balance:", balance);
+
+          setCurrentBalance(balance);
+          return; // Success
+        } catch (err) {
+          lastError = err;
+          console.warn(`Balance fetch attempt ${i + 1} failed:`, err);
+          if (i < 2) await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1s before retry
+        }
+      }
+
+      // All retries failed
+      throw lastError;
     } catch (error) {
       console.error("Failed to load USDC balance:", error);
       setTransaction({
@@ -180,9 +196,9 @@ const UsdcMintDialog = ({
 
       let receipt;
       try {
-        // Add timeout to prevent hanging
+        // Add timeout to prevent hanging (increased to 120 seconds for devnet)
         const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Transaction timeout after 60 seconds')), 60000)
+          setTimeout(() => reject(new Error('Transaction timeout after 120 seconds')), 120000)
         );
 
         receipt = await Promise.race([
@@ -208,7 +224,7 @@ const UsdcMintDialog = ({
           console.log("Direct mint tx:", tx.hash);
 
           const timeoutPromise = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Direct mint timeout after 60 seconds')), 60000)
+            setTimeout(() => reject(new Error('Direct mint timeout after 120 seconds')), 120000)
           );
 
           receipt = await Promise.race([

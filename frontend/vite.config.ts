@@ -27,7 +27,9 @@ function resolveAliasPlugin(): Plugin {
         // Try each extension
         for (const ext of extensions) {
           const pathWithExt = targetPath + ext
-          if (fs.existsSync(pathWithExt)) {
+          const exists = fs.existsSync(pathWithExt)
+          console.log(`[resolve-alias] Trying ${ext}: ${pathWithExt} - exists: ${exists}`)
+          if (exists) {
             console.log(`[resolve-alias] Found: ${pathWithExt}`)
             return { id: pathWithExt, external: false }
           }
